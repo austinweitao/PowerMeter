@@ -8,11 +8,18 @@
 
 #define CLOCKID CLOCK_REALTIME
 
-void timer_thread_gathering(union sigval v)
+typedef struct {
+	unsigned int sample_interval;
+	unsigned int upload_interval;
+}Interval;
+
+Interval interval;
+
+void timer_thread_sample(union sigval v)
 {
 	time_t rawtime;
     	struct tm *info;
-	printf("******gathering timer expired******.\n");
+	printf("******sample timer expired******.\n");
     	time(&rawtime);
     	/* Get GMT time */
     	info = gmtime(&rawtime );
@@ -38,22 +45,22 @@ int main()
 	// evp--存放环境值的地址,结构成员说明了定时器到期的通知方式和处理方式等
 	// timerid--定时器标识符
 
-	timer_t timerid_gathering, timerid_upload;
+	timer_t timerid_sample, timerid_upload;
 
-	struct sigevent evp_gathering,evp_upload;
-	memset(&evp_gathering, 0, sizeof(struct sigevent));		//清零初始化
+	struct sigevent evp_sample,evp_upload;
+	memset(&evp_sample, 0, sizeof(struct sigevent));		//清零初始化
 	memset(&evp_upload, 0, sizeof(struct sigevent));		//清零初始化
 
-	evp_gathering.sigev_value.sival_int = 100;			//也是标识定时器的，这和timerid有什么区别？回调函数可以获得
-	evp_gathering.sigev_notify = SIGEV_THREAD;			//线程通知的方式，派驻新线程
-	evp_gathering.sigev_notify_function = timer_thread_gathering;		//线程函数地址
+	evp_sample.sigev_value.sival_int = 100;			//也是标识定时器的，这和timerid有什么区别？回调函数可以获得
+	evp_sample.sigev_notify = SIGEV_THREAD;			//线程通知的方式，派驻新线程
+	evp_sample.sigev_notify_function = timer_thread_sample;		//线程函数地址
 
 	evp_upload.sigev_value.sival_int = 200;			//也是标识定时器的，这和timerid有什么区别？回调函数可以获得
 	evp_upload.sigev_notify = SIGEV_THREAD;			//线程通知的方式，派驻新线程
 	evp_upload.sigev_notify_function = timer_thread_upload;		//线程函数地址
 
-	if (timer_create(CLOCKID, &evp_gathering, &timerid_gathering) == -1) {
-		perror("fail to gathering timer_create");
+	if (timer_create(CLOCKID, &evp_sample, &timerid_sample) == -1) {
+		perror("fail to sample timer_create");
 		exit(-1);
 	}
 	if (timer_create(CLOCKID, &evp_upload, &timerid_upload) == -1) {
@@ -76,22 +83,22 @@ int main()
 	
 		int sec_lefts;
 	   
-		struct itimerspec it_gathering,it_upload;
+		struct itimerspec it_sample,it_upload;
 	    if((sec_lefts = info->tm_sec % 5) == 0)
 		{
 		
-			it_gathering.it_interval.tv_sec = 5;
-			it_gathering.it_interval.tv_nsec = 0;
-			it_gathering.it_value.tv_sec = 0;
-			it_gathering.it_value.tv_nsec = 1;  //a workaround to start the thread immediately
+			it_sample.it_interval.tv_sec = 5;
+			it_sample.it_interval.tv_nsec = 0;
+			it_sample.it_value.tv_sec = 0;
+			it_sample.it_value.tv_nsec = 1;  //a workaround to start the thread immediately
 	
 		}
 		else
 		{
-			it_gathering.it_interval.tv_sec = 5;
-			it_gathering.it_interval.tv_nsec = 0;
-			it_gathering.it_value.tv_sec = 5 - sec_lefts;
-			it_gathering.it_value.tv_nsec = 0;
+			it_sample.it_interval.tv_sec = 5;
+			it_sample.it_interval.tv_nsec = 0;
+			it_sample.it_value.tv_sec = 5 - sec_lefts;
+			it_sample.it_value.tv_nsec = 0;
 	
 	
 		}
@@ -114,8 +121,8 @@ int main()
 			it_upload.it_value.tv_nsec = 0; 
 		}
 	
-		if (timer_settime(timerid_gathering, 0, &it_gathering, NULL) == -1) {
-			perror("fail to gathering timer_settime");
+		if (timer_settime(timerid_sample, 0, &it_sample, NULL) == -1) {
+			perror("fail to sample timer_settime");
 			exit(-1);
 		}
 		if (timer_settime(timerid_upload, 0, &it_upload, NULL) == -1) {
