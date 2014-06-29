@@ -8,12 +8,103 @@
 
 #define CLOCKID CLOCK_REALTIME
 
+#define USER_SAMPLE_INTERVAL (5)
+#define USER_UPLOAD_INTERVAL (30*SECSPERMIN)
+#define SECSPERHOUR 3600
+#define SECSPERMIN 60	
+
+typedef struct{
+	int addr;  	//meter attribute register start address
+	unsigned char reg_num;	//meter attribute register numbers
+	int scale;	// attribute value scale
+	char *value_type;  //type of the value: float,int,long
+}Meter_Attribute;
+
+typedef struct{
+	unsigned char modbus_id;	//modbus id for a specific meter 
+	unsigned char num_attribute;	//num of atrributes a meter provides, MAX:255	
+	Meter_Attribute *attribute;	//pointer to a specific meter's attriubtes
+}Meter;
+
+
+//unit:senconds
 typedef struct {
 	unsigned int sample_interval;
 	unsigned int upload_interval;
 }Interval;
 
 Interval interval;
+
+unsigned int get_sample_interval()
+{
+	return USER_SAMPLE_INTERVAL;
+}
+
+unsigned int get_upload_interval()
+{
+	return USER_UPLOAD_INTERVAL;
+}
+
+#define SECSPERHOUR 3600
+#define SECSPERMIN 60	
+
+void second_trans(unsigned int seconds)
+{
+	
+
+}
+
+void interval_init(Interval *interval)
+{
+	//before the create the interval timer, we need to initialize the interval first
+	printf("about to initialize sample interval and upload interval\n");
+	interval->sample_interval = get_sample_interval();
+	interval->upload_interval = get_upload_interval();
+
+	printf("sample interval:%d\n",interval->sample_interval);
+	printf("upload interval:%d\n\n",interval->upload_interval);
+
+}
+
+void itimer_init(struct tm*info, struct itimerspec * it_spec,unsigned int it_interval)
+{
+
+	
+	int secs_left = 0;	
+	//sample interval less than 1 hour, unit in minutes
+	if(it_interval < SECSPERHOUR){
+		
+		if((info->tm_min * SECSPERMIN + info->tm_sec) % it_interval == 0)
+			secs_left = 0;
+		else
+			secs_left = it_interval - (info->tm_min * SECSPERMIN + info->tm_sec) % it_interval;
+	}
+	//sample interval equal or greater than 1 hour, unit in hours
+	else{
+		 secs_left = SECSPERHOUR - (info->tm_min * SECSPERMIN + info->tm_sec);
+	}
+		
+	if(secs_left == 0)
+	{
+
+		it_spec->it_interval.tv_sec = it_interval;
+		it_spec->it_interval.tv_nsec = 0;
+		it_spec->it_value.tv_sec = 0;
+		it_spec->it_value.tv_nsec = 1;  //a workaround to start the thread immediately
+	}
+	else	
+	{
+		it_spec->it_interval.tv_sec = it_interval;
+		it_spec->it_interval.tv_nsec = 0;
+		it_spec->it_value.tv_sec = secs_left;
+		it_spec->it_value.tv_nsec = 0;  
+
+	}
+	
+	printf("interval timer interval:%d\n",it_spec->it_interval.tv_sec);
+	printf("inteval timer secs left:%d\n",it_spec->it_value.tv_sec);
+
+}
 
 void timer_thread_sample(union sigval v)
 {
@@ -38,26 +129,25 @@ void timer_thread_upload(union sigval v)
 
 int main()
 {
+
+	interval_init(&interval);
+
    	time_t rawtime;
    	struct tm *info;
-	// XXX int timer_create(clockid_t clockid, struct sigevent *evp, timer_t *timerid);
-	// clockid--值：CLOCK_REALTIME,CLOCK_MONOTONIC，CLOCK_PROCESS_CPUTIME_ID,CLOCK_THREAD_CPUTIME_ID
-	// evp--存放环境值的地址,结构成员说明了定时器到期的通知方式和处理方式等
-	// timerid--定时器标识符
 
 	timer_t timerid_sample, timerid_upload;
 
 	struct sigevent evp_sample,evp_upload;
-	memset(&evp_sample, 0, sizeof(struct sigevent));		//清零初始化
-	memset(&evp_upload, 0, sizeof(struct sigevent));		//清零初始化
+	memset(&evp_sample, 0, sizeof(struct sigevent));		
+	memset(&evp_upload, 0, sizeof(struct sigevent));		
 
-	evp_sample.sigev_value.sival_int = 100;			//也是标识定时器的，这和timerid有什么区别？回调函数可以获得
-	evp_sample.sigev_notify = SIGEV_THREAD;			//线程通知的方式，派驻新线程
-	evp_sample.sigev_notify_function = timer_thread_sample;		//线程函数地址
+	evp_sample.sigev_value.sival_int = 100;			
+	evp_sample.sigev_notify = SIGEV_THREAD;		
+	evp_sample.sigev_notify_function = timer_thread_sample;		
 
-	evp_upload.sigev_value.sival_int = 200;			//也是标识定时器的，这和timerid有什么区别？回调函数可以获得
-	evp_upload.sigev_notify = SIGEV_THREAD;			//线程通知的方式，派驻新线程
-	evp_upload.sigev_notify_function = timer_thread_upload;		//线程函数地址
+	evp_upload.sigev_value.sival_int = 200;			
+	evp_upload.sigev_notify = SIGEV_THREAD;			
+	evp_upload.sigev_notify_function = timer_thread_upload;	
 
 	if (timer_create(CLOCKID, &evp_sample, &timerid_sample) == -1) {
 		perror("fail to sample timer_create");
@@ -68,69 +158,28 @@ int main()
 		exit(-1);
 	}
 
-	// XXX int timer_settime(timer_t timerid, int flags, const struct itimerspec *new_value,struct itimerspec *old_value);
-	// timerid--定时器标识
-	// flags--0表示相对时间，1表示绝对时间
-	// new_value--定时器的新初始值和间隔，如下面的it
-	// old_value--取值通常为0，即第四个参数常为NULL,若不为NULL，则返回定时器的前一个值
+	time(&rawtime);
+	/* Get GMT time */
+	info = gmtime(&rawtime );
+	printf("Current world clock:\n");
+	printf("UTC: %2d:%02d:%02d\n\n", info->tm_hour, info->tm_min,info->tm_sec);
 	
-	//第一次间隔it.it_value这么长,以后每次都是it.it_interval这么长,就是说it.it_value变0的时候会装载it.it_interval的值
-	    time(&rawtime);
-	    /* Get GMT time */
-	    info = gmtime(&rawtime );
-	    printf("Current world clock:\n");
-	    printf("UTC: %2d:%02d:%02d\n", info->tm_hour, info->tm_min,info->tm_sec);
-	
-		int sec_lefts;
 	   
-		struct itimerspec it_sample,it_upload;
-	    if((sec_lefts = info->tm_sec % 5) == 0)
-		{
-		
-			it_sample.it_interval.tv_sec = 5;
-			it_sample.it_interval.tv_nsec = 0;
-			it_sample.it_value.tv_sec = 0;
-			it_sample.it_value.tv_nsec = 1;  //a workaround to start the thread immediately
+	struct itimerspec it_sample,it_upload;
+
+	itimer_init(info,&it_sample,interval.sample_interval);
+	itimer_init(info,&it_upload,interval.upload_interval);
 	
-		}
-		else
-		{
-			it_sample.it_interval.tv_sec = 5;
-			it_sample.it_interval.tv_nsec = 0;
-			it_sample.it_value.tv_sec = 5 - sec_lefts;
-			it_sample.it_value.tv_nsec = 0;
+	if (timer_settime(timerid_sample, 0, &it_sample, NULL) == -1) {
+		perror("fail to sample timer_settime");
+		exit(-1);
+	}
+	if (timer_settime(timerid_upload, 0, &it_upload, NULL) == -1) {
+		perror("fail to upload timer_settime");
+		exit(-1);
+	}
 	
+	pause();
 	
-		}
-	
-	    if(info->tm_sec == 0)
-		{
-			//need to upload file immediately
-		
-			it_upload.it_interval.tv_sec = 60;
-			it_upload.it_interval.tv_nsec = 0;
-			it_upload.it_value.tv_sec = 0;
-			it_upload.it_value.tv_nsec = 1;  //a workaround to start the thread immediately
-	
-		}
-		else
-		{
-			it_upload.it_interval.tv_sec = 60;
-			it_upload.it_interval.tv_nsec = 0;
-			it_upload.it_value.tv_sec = 60 - info->tm_sec;
-			it_upload.it_value.tv_nsec = 0; 
-		}
-	
-		if (timer_settime(timerid_sample, 0, &it_sample, NULL) == -1) {
-			perror("fail to sample timer_settime");
-			exit(-1);
-		}
-		if (timer_settime(timerid_upload, 0, &it_upload, NULL) == -1) {
-			perror("fail to upload timer_settime");
-			exit(-1);
-		}
-	
-		pause();
-	
-		return 0;
+	return 0;
 }

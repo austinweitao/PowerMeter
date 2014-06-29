@@ -57,7 +57,7 @@ int main()
 	}
 
 	struct itimerspec it;
-	it.it_interval.tv_sec = 1;
+	it.it_interval.tv_sec = 0;
 	it.it_interval.tv_nsec = 0;
 	it.it_value.tv_sec = 5;
 	it.it_value.tv_nsec = 0;
