@@ -322,7 +322,7 @@ void timer_thread_sample(union sigval v)
     	memset(tab_rp_registers, 0, nb_points * sizeof(uint16_t));
 
 		Meter_Attribute *attribute = meter->attribute;
-		for(i = 0; i < meter->num_attribute,attribute; i++,attribute++){
+		for(i = 0; i < meter->num_attribute && attribute; i++,attribute++){
     		/** HOLDING REGISTERS **/
 
     		/* Single register */
@@ -333,6 +333,7 @@ void timer_thread_sample(union sigval v)
         		printf("FAILED (nb points %d)\n", rc);
         		goto close;
     		}
+#if 0
 
 			if(!strcmp(attribute->value_type,"float")){
     			tmp_value = tab_rp_registers[0];
@@ -342,6 +343,7 @@ void timer_thread_sample(union sigval v)
    
     		float_value = modbus_get_float(tab_rp_registers);
     		printf("float value is %f %s\n",float_value,attribute->value_unit);  
+#endif
 
     		printf("OK\n");
 
