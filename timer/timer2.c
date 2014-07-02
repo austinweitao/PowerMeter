@@ -8,7 +8,7 @@
 
 #include "sll.h"
 #include <errno.h>
-#include <modbus.h>
+#include <modbus/modbus.h>
 
 #include "unit-test.h"
 enum {
@@ -20,8 +20,8 @@ enum {
 
 #define CLOCKID CLOCK_REALTIME
 
-#define USER_SAMPLE_INTERVAL (5)
-#define USER_UPLOAD_INTERVAL (15)
+#define USER_SAMPLE_INTERVAL (10)
+#define USER_UPLOAD_INTERVAL (30)
 #define SECSPERHOUR 3600
 #define SECSPERMIN 60	
 
@@ -113,7 +113,7 @@ void meter_init(void)
     ** it will be the last node
     */
     addr->modbus_id = 2;
-    addr->num_attribute = 1;
+    addr->num_attribute = 7;
     addr->attribute = (Meter_Attribute *) malloc(addr->num_attribute * sizeof(Meter_Attribute));
     if(addr->attribute == NULL)
     {
@@ -127,6 +127,8 @@ void meter_init(void)
     (void) fprintf(stderr," initialzing meter attributes\n");
     (void) fprintf(stderr,
 "=========================================================================\n");
+
+#if 0
     int i;
     for(i = 0; i < addr->num_attribute;i++)
     {
@@ -141,7 +143,108 @@ void meter_init(void)
        		exit(-1);
     	}
     }
-    
+
+#endif
+
+    Meter_Attribute *tmp = addr->attribute;
+    (void) fprintf(stderr,"tmp is %p\n",tmp);
+    tmp->addr = 999;
+    tmp->reg_num = 2;
+    tmp->scale = 1;
+    tmp->value_type = strdup("float");
+    tmp->value_unit = strdup("KWh");
+    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
+    {
+   	(void) fprintf(stderr,"malloc failed\n");
+        exit(-1);
+    }
+ 
+    tmp = tmp + 1;
+    (void) fprintf(stderr,"tmp is %p\n",tmp);
+    tmp->addr = 1001;
+    tmp->reg_num = 2;
+    tmp->scale = 1;
+    tmp->value_type = strdup("float");
+    tmp->value_unit = strdup("KVAh");
+    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
+    {
+   	(void) fprintf(stderr,"malloc failed\n");
+        exit(-1);
+    }
+   
+    tmp = tmp + 1;
+    (void) fprintf(stderr,"tmp is %p\n",tmp);
+    tmp->addr = 1003;
+    tmp->reg_num = 2;
+    tmp->scale = 1;
+    tmp->value_type = strdup("float");
+    tmp->value_unit = strdup("KVarh");
+    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
+    {
+   	(void) fprintf(stderr,"malloc failed\n");
+        exit(-1);
+    }
+
+    tmp = tmp + 1;
+    (void) fprintf(stderr,"tmp is %p\n",tmp);
+    tmp->addr = 1005;
+    tmp->reg_num = 2;
+    tmp->scale = 1;
+    tmp->value_type = strdup("float");
+    tmp->value_unit = strdup("KW");
+    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
+    {
+   	(void) fprintf(stderr,"malloc failed\n");
+        exit(-1);
+    }
+    tmp = tmp + 1;
+    (void) fprintf(stderr,"tmp is %p\n",tmp);
+    tmp->addr = 1007;
+    tmp->reg_num = 2;
+    tmp->scale = 1;
+    tmp->value_type = strdup("float");
+    tmp->value_unit = strdup("KVA");
+    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
+    {
+   	(void) fprintf(stderr,"malloc failed\n");
+        exit(-1);
+    }
+    tmp = tmp + 1;
+    (void) fprintf(stderr,"tmp is %p\n",tmp);
+    tmp->addr = 1009;
+    tmp->reg_num = 2;
+    tmp->scale = 1;
+    tmp->value_type = strdup("float");
+    tmp->value_unit = strdup("KVar");
+    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
+    {
+   	(void) fprintf(stderr,"malloc failed\n");
+        exit(-1);
+    }
+    tmp = tmp + 1;
+    (void) fprintf(stderr,"tmp is %p\n",tmp);
+    tmp->addr = 1013;
+    tmp->reg_num = 2;
+    tmp->scale = 1;
+    tmp->value_type = strdup("float");
+    tmp->value_unit = strdup("Volt");
+    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
+    {
+   	(void) fprintf(stderr,"malloc failed\n");
+        exit(-1);
+    }
+    Meter_Attribute *attribute = addr->attribute;
+    int i;
+    for(i = 0; i < addr->num_attribute && attribute; i++,attribute++){
+    	(void) fprintf(stderr,"  %d\n",attribute->addr);
+    	(void) fprintf(stderr,"  %d\n",attribute->reg_num);
+    	(void) fprintf(stderr,"  %d\n",attribute->scale);
+    	(void) fprintf(stderr,"  %s\n",attribute->value_type);
+    	(void) fprintf(stderr,"  %s\n",attribute->value_unit);
+    	(void) fprintf(stderr,"\n");
+    }
+
+#if 0    
     (void) fprintf(stderr,"Node: %d\n", ++n);
     (void) fprintf(stderr,"  %d\n",addr->modbus_id);
     (void) fprintf(stderr,"  %d\n",addr->num_attribute);
@@ -150,6 +253,7 @@ void meter_init(void)
     (void) fprintf(stderr,"  %d\n",addr->attribute->scale);
     (void) fprintf(stderr,"  %s\n",addr->attribute->value_type);
     (void) fprintf(stderr,"  %s\n",addr->attribute->value_unit);
+#endif
 
     /*
     ** print
@@ -298,6 +402,7 @@ void timer_thread_sample(union sigval v)
     	uint16_t tmp_value;
     	float float_value;
 
+    	//ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
     	ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
     	if (ctx == NULL) {
        	 	fprintf(stderr, "Unable to allocate libmodbus context\n");
@@ -322,16 +427,17 @@ void timer_thread_sample(union sigval v)
     	memset(tab_rp_registers, 0, nb_points * sizeof(uint16_t));
 
 		Meter_Attribute *attribute = meter->attribute;
+		printf("num_attribute is %d.\n",meter->num_attribute);
 		for(i = 0; i < meter->num_attribute && attribute; i++,attribute++){
     		/** HOLDING REGISTERS **/
 
     		/* Single register */
-
+		printf("reading register.\n");
     		rc = modbus_read_registers(ctx, attribute->addr,
                                attribute->reg_num, tab_rp_registers);
     		if (rc != attribute->reg_num) {
         		printf("FAILED (nb points %d)\n", rc);
-        		goto close;
+//        		goto close;
     		}
 #if 0
 
@@ -354,6 +460,8 @@ void timer_thread_sample(union sigval v)
 
 close:
     /* Free the memory */
+
+    printf("closing the modbus\n");
     free(tab_rp_registers);
 
     /* Close the connection */
@@ -396,12 +504,17 @@ int main()
         addr=(Meter*) l->data;
     	(void) fprintf(stderr,"Node: %d\n", ++n);
     	(void) fprintf(stderr,"  %d\n",addr->modbus_id);
-    	(void) fprintf(stderr,"  %d\n",addr->num_attribute);
-    	(void) fprintf(stderr,"  %d\n",addr->attribute->addr);
-    	(void) fprintf(stderr,"  %d\n",addr->attribute->reg_num);
-    	(void) fprintf(stderr,"  %d\n",addr->attribute->scale);
-    	(void) fprintf(stderr,"  %s\n",addr->attribute->value_type);
-    	(void) fprintf(stderr,"  %s\n",addr->attribute->value_unit);
+
+    	Meter_Attribute *attribute = addr->attribute;
+    	int i;
+    	for(i = 0; i < addr->num_attribute && attribute; i++,attribute++){
+    		(void) fprintf(stderr,"  %d\n",attribute->addr);
+    		(void) fprintf(stderr,"  %d\n",attribute->reg_num);
+    		(void) fprintf(stderr,"  %d\n",attribute->scale);
+    		(void) fprintf(stderr,"  %s\n",attribute->value_type);
+    		(void) fprintf(stderr,"  %s\n",attribute->value_unit);
+    		(void) fprintf(stderr,"\n");
+   	 }
     }
 
 	interval_init(&interval);
