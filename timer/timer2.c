@@ -43,7 +43,7 @@ typedef struct{
 	unsigned char modbus_id;	//modbus id for a specific meter 
 	unsigned char num_attribute;	//num of atrributes a meter provides, MAX:255	
 	Meter_Attribute *attribute;	//pointer to a specific meter's attriubtes
-	int fd;	//file descriptor for saving sampling data
+	char *file_name;	//file descriptor for saving sampling data
 }Meter;
 
 static void freeData(void **data)
@@ -535,12 +535,21 @@ void timer_thread_sample(union sigval v)
         meter = (Meter*) l->data;
 
 //*********************for every meter,open the corresponding file for saving sampling data first//
-		sprintf(file_name,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001",meter->modbus_id,(info->tm_year + 1900),info->tm_mon,(info->tm_mday + 1),info->tm_hour,info->tm_min,info->tm_sec);
-		fprintf(stderr,"file name is %s\n",file_name);
-		fprintf(stderr,"opening file\n");
-		meter->fd = open(file_name,O_WRONLY | O_CREAT);			
-		fprintf(stderr,"closing file\n");
-		close(meter->fd);
+		if(counter == 1){
+			sprintf(file_name,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001",meter->modbus_id,(info->tm_year + 1900),info->tm_mon,(info->tm_mday + 1),info->tm_hour,info->tm_min,info->tm_sec);
+
+			meter->file_name = strdup(file_name);
+    		if (meter->file_name == NULL) 
+    		{
+       			(void) fprintf(stderr,"malloc failed\n");
+       			exit(-1);
+    		}
+		}
+			fprintf(stderr,"opening file\n");
+
+			meter->fd = open(file_name,O_WRONLY | O_CREAT);			
+			fprintf(stderr,"closing file\n");
+			close(meter->fd);
 	
 
 
