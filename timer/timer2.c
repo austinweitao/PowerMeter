@@ -23,10 +23,10 @@ enum {
 
 #define CLOCKID CLOCK_REALTIME
 
-//#define USER_SAMPLE_INTERVAL (1 * SECSPERMIN)
-//#define USER_UPLOAD_INTERVAL (2 * SECSPERMIN)
-#define USER_SAMPLE_INTERVAL (30)
-#define USER_UPLOAD_INTERVAL (60)
+//#define USER_SAMPLE_INTERVAL (5 * SECSPERMIN)
+//#define USER_UPLOAD_INTERVAL (30 * SECSPERMIN)
+#define USER_SAMPLE_INTERVAL (10)
+#define USER_UPLOAD_INTERVAL (30)
 #define SECSPERHOUR 3600
 #define SECSPERMIN 60	
 #define INTERVAL_CMEP "00000005"
@@ -43,7 +43,10 @@ typedef struct{
 	unsigned char modbus_id;	//modbus id for a specific meter 
 	unsigned char num_attribute;	//num of atrributes a meter provides, MAX:255	
 	Meter_Attribute *attribute;	//pointer to a specific meter's attriubtes
-	char *file_name;	//file descriptor for saving sampling data
+	char *file_name;	//file path for sampling data file
+	//int fd;		//file descriptor for sampling data file
+	FILE * file;		//file descriptor for sampling data file
+	char *commodity;    //type of the meter, such as electricity,gas,water,etc.
 }Meter;
 
 static void freeData(void **data)
@@ -121,6 +124,10 @@ void meter_init(void)
     */
     addr->modbus_id = 2;
     addr->num_attribute = 7;
+
+	addr->commodity = strdup("E");   //the meter is a Electricity type
+	if(addr->commodity == NULL)
+		(void *)fprintf(stderr,"failed to allocate meter commodity.\n");
     addr->attribute = (Meter_Attribute *) malloc(addr->num_attribute * sizeof(Meter_Attribute));
     if(addr->attribute == NULL)
     {
@@ -200,6 +207,7 @@ void meter_init(void)
    	(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
+
     tmp = tmp + 1;
     tmp->addr = 1007;
     tmp->reg_num = 2;
@@ -280,6 +288,7 @@ void meter_init(void)
     (void) fprintf(stderr,"\n---------------[ freeing ]----------\n");
     destroyNodes(&head,freeData);
 #endif
+#if 0
     (void) fprintf(stderr,
 "=========================================================================\n");
     (void) fprintf(stderr," Testing Append a node at the beginning of a list\n");
@@ -302,8 +311,8 @@ void meter_init(void)
     /*
     ** it will be the last node
     */
-    addr->modbus_id = 3;
-    addr->num_attribute = 7;
+    addr->modbus_id = 2;
+    addr->num_attribute = 3;
     addr->attribute = (Meter_Attribute *) malloc(addr->num_attribute * sizeof(Meter_Attribute));
     if(addr->attribute == NULL)
     {
@@ -317,6 +326,7 @@ void meter_init(void)
     (void) fprintf(stderr," initialzing meter attributes\n");
     (void) fprintf(stderr,
 "=========================================================================\n");
+#endif 
 
 #if 0
     int i;
@@ -336,6 +346,7 @@ void meter_init(void)
 
 #endif
 
+#if 0
     tmp = addr->attribute;
     tmp->addr = 9990;
     tmp->reg_num = 2;
@@ -384,7 +395,7 @@ void meter_init(void)
         exit(-1);
     }
     tmp = tmp + 1;
-    tmp->addr = 10070;
+    tmp->addr = 1007;
     tmp->reg_num = 2;
     tmp->scale = 1;
     tmp->value_type = strdup("float");
@@ -395,7 +406,7 @@ void meter_init(void)
         exit(-1);
     }
     tmp = tmp + 1;
-    tmp->addr = 10090;
+    tmp->addr = 1009;
     tmp->reg_num = 2;
     tmp->scale = 1;
     tmp->value_type = strdup("float");
@@ -406,7 +417,7 @@ void meter_init(void)
         exit(-1);
     }
     tmp = tmp + 1;
-    tmp->addr = 10130;
+    tmp->addr = 1013;
     tmp->reg_num = 2;
     tmp->scale = 1;
     tmp->value_type = strdup("float");
@@ -426,6 +437,7 @@ void meter_init(void)
     	(void) fprintf(stderr,"\n");
     }
 
+#endif
 
 }
 
@@ -452,10 +464,15 @@ unsigned int get_upload_interval()
 #define SECSPERHOUR 3600
 #define SECSPERMIN 60	
 
-void second_trans(unsigned int seconds)
+void second_trans(unsigned int seconds,char *time)
 {
-	
+	unsigned int day,hour,min;
+	day = seconds / (60 * 60 * 24);
+	hour = seconds / (60 * 60) % 24;
+	min = seconds / 60 % 60;
 
+	sprintf(time,"%02d%02d%02d%02d",0,day,hour,min);
+	
 }
 
 void interval_init(Interval *interval)
@@ -544,12 +561,16 @@ void timer_thread_sample(union sigval v)
        			(void) fprintf(stderr,"malloc failed\n");
        			exit(-1);
     		}
+			(void *)fprintf(stderr,"the file path is %s.\n",meter->file_name);
 		}
-			fprintf(stderr,"opening file\n");
+			(void *)fprintf(stderr,"opening file %s.\n",meter->file_name);
 
-			meter->fd = open(file_name,O_WRONLY | O_CREAT);			
-			fprintf(stderr,"closing file\n");
-			close(meter->fd);
+			//meter->fd = open(meter->file_name,O_WRONLY | O_CREAT);			
+			meter->file = fopen(meter->file_name,"a");			
+			if(meter->file == NULL)
+				perror("fopen failed:");
+//			(void *)fprintf(stderr,"closing file %s.\n",meter->file_name);
+//			fclose(meter->file);
 	
 
 
@@ -572,6 +593,7 @@ void timer_thread_sample(union sigval v)
     	int use_backend;
     	uint16_t tmp_value;
     	float float_value;
+		char interval_string[16];
 
     	//ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
     	ctx = modbus_new_rtu("/dev/ttyS0", 19200, 'N', 8, 1);
@@ -606,11 +628,20 @@ void timer_thread_sample(union sigval v)
 		printf("reading register.\n");
     		rc = modbus_read_registers(ctx, attribute->addr,
                                attribute->reg_num, tab_rp_registers);
+    		if ("rc == attribute->reg_num") {
+				second_trans(get_sample_interval(),interval_string);
+				fprintf(meter->file,"%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%2d","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,1,(info->tm_year + 1900),info->tm_mon,(info->tm_mday + 1),info->tm_hour,info->tm_min);
+				//fprintf(meter->file,"%f ",modbus_get_float_cdab(tab_rp_registers));
+				fprintf(meter->file,"\n");
+    		}
+			else
+        			printf("FAILED (nb points %d)\n", rc);
+				
+#if 0
     		if (rc != attribute->reg_num) {
         		printf("FAILED (nb points %d)\n", rc);
-//        		goto close;
+        		goto close;
     		}
-#if 0
 
 			if(!strcmp(attribute->value_type,"float")){
     			tmp_value = tab_rp_registers[0];
@@ -622,12 +653,11 @@ void timer_thread_sample(union sigval v)
     		printf("float value is %f %s\n",float_value,attribute->value_unit);  
 #endif
 
-    		printf("OK\n");
-
-			
 
 		}
 	
+			(void *)fprintf(stderr,"closing file %s.\n",meter->file_name);
+			fclose(meter->file);
 
 close:
     /* Free the memory */
@@ -663,6 +693,10 @@ void timer_thread_upload(union sigval v)
 }
 int main()
 {
+	char interval_string[16];
+	second_trans(get_sample_interval(),interval_string);
+    (void) fprintf(stderr,"sample interval string is %s\n",interval_string);
+	
 	Sll *l;
 	Meter *addr;
 
