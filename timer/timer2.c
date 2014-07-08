@@ -18,7 +18,7 @@
 #define LOCAL_FILE      "/tmp/uploadthis.txt"
 #define UPLOAD_FILE_AS  "while-uploading.txt"
 #define REMOTE_URL      "ftp://austin:weitao@192.168.148.137:990/"  UPLOAD_FILE_AS
-#define RENAME_FILE_TO  "renamed-and-fine.txt"
+#define RENAME_FILE_TO  "SBS_Meter_PM7500.txt"
 enum {
     TCP,
     TCP_PI,
@@ -31,7 +31,7 @@ enum {
 //#define USER_SAMPLE_INTERVAL (5 * SECSPERMIN)
 //#define USER_UPLOAD_INTERVAL (30 * SECSPERMIN)
 #define USER_SAMPLE_INTERVAL (10)
-#define USER_UPLOAD_INTERVAL (50)
+#define USER_UPLOAD_INTERVAL (40)
 #define SECSPERHOUR 3600
 #define SECSPERMIN 60	
 #define INTERVAL_CMEP "00000005"
@@ -49,10 +49,10 @@ typedef struct{
 	unsigned char num_attribute;	//num of atrributes a meter provides, MAX:255	
 	Meter_Attribute *attribute;	//pointer to a specific meter's attriubtes
 	char *file_name;	//file path for sampling data file
-	char *file_tmp;
+	char *file_tmp_name;
 	//int fd;		//file descriptor for sampling data file
 	FILE * file;		//file descriptor for sampling data file
-	//FILE * file_tmp;		//file descriptor for sampling data file
+	FILE * file_tmp;		//file descriptor for sampling data file
 	char *commodity;    //type of the meter, such as electricity,gas,water,etc.
 }Meter;
 
@@ -585,24 +585,25 @@ void timer_thread_sample(union sigval v)
 			sprintf(file_name_tmp,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001_tmp",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
 
 			meter->file_name = strdup(file_name);
-			meter->file_tmp = strdup(file_name_tmp);
+			meter->file_tmp_name = strdup(file_name_tmp);
     		if (meter->file_name == NULL) 
     		{
        			(void) fprintf(stderr,"malloc failed\n");
        			exit(-1);
     		}
-    		if (meter->file_tmp == NULL) 
+    		if (meter->file_tmp_name == NULL) 
     		{
        			(void) fprintf(stderr,"malloc failed\n");
        			exit(-1);
     		}
 			(void *)fprintf(stderr,"the file path is %s.\n",meter->file_name);
-			(void *)fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp);
+			(void *)fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp_name);
 		}
-			(void *)fprintf(stderr,"opening file %s.\n",meter->file_name);
+			(void *)fprintf(stderr,"opening file %s.\n",meter->file_tmp_name);
 
 			//meter->fd = open(meter->file_name,O_WRONLY | O_CREAT);			
-			meter->file = fopen(meter->file_name,"a");			
+//			meter->file = fopen(meter->file_name,"a");			
+			meter->file = fopen(meter->file_tmp_name,"a");			
 			if(meter->file == NULL)
 				perror("fopen failed:");
 //			(void *)fprintf(stderr,"closing file %s.\n",meter->file_name);
@@ -670,8 +671,12 @@ void timer_thread_sample(union sigval v)
 				if(counter == 1)
 					fprintf(meter->file,"%s%s%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%02d,,%f#","MEPMD01,19970819,Schneider Electric,,,","SECN\\Schneider Electric China|SBMV\\Beijing Middle Voltage Plant","201308010358,SBMV.MCSET.FHU_HVAC_Lighting1|129","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(),(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,modbus_get_float_cdab(tab_rp_registers));
 				//	fprintf(meter->file,"%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%02d%02d,,%f ","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(), (info->tm_year + 1900),(info->tm_mon+1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec,modbus_get_float_cdab(tab_rp_registers));
-				else	
-					fprintf(meter->file,",,,%f#",modbus_get_float_cdab(tab_rp_registers));
+				else{	
+						if( i == meter->num_attribute -1)	
+							fprintf(meter->file,",,,%f",modbus_get_float_cdab(tab_rp_registers));
+						else
+							fprintf(meter->file,",,,%f#",modbus_get_float_cdab(tab_rp_registers));
+				}
 		
 				fflush(meter->file);
     		}
@@ -680,7 +685,7 @@ void timer_thread_sample(union sigval v)
 
 		}
 			fprintf(meter->file,"\n");
-			(void *)fprintf(stderr,"closing file %s.\n",meter->file_name);
+			(void *)fprintf(stderr,"closing file %s.\n",meter->file_tmp_name);
 			fclose(meter->file);
 
 close:
@@ -704,7 +709,7 @@ close:
 			char system_arguments[128];
 
 			//sprintf(system_arguments,"awk '{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\" \"}print \"\"}}' %s | sed s/[[:space:]]//g > %s_new",meter->file_name,meter->file_name);
-			sprintf(system_arguments,"awk 'BEGIN{FS=\"#\"}{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\"#\"}print \"\"}}' %s | sed s/#//g > %s_new",meter->file_name,meter->file_name);
+			sprintf(system_arguments,"awk 'BEGIN{FS=\"#\"}{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\"#\"}print \"\"}}' %s | sed s/#//g > %s",meter->file_tmp_name,meter->file_name);
 			if( system(system_arguments) != 0) 
 				(void *)fprintf(stderr,"system call error.\n"); 
 
@@ -728,7 +733,8 @@ close:
 			
 			  struct curl_slist *headerlist=NULL;
 			  static const char buf_1 [] = "RNFR " UPLOAD_FILE_AS;
-			  static const char buf_2 [] = "RNTO " RENAME_FILE_TO;
+			  static char buf_2 [64];
+			  sprintf(buf_2,"RNTO %s",meter->file_name);
 			
 			  /* get the file size of the local file */
 			  if(stat(meter->file_name, &file_info)) {
