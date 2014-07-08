@@ -26,7 +26,7 @@ enum {
 //#define USER_SAMPLE_INTERVAL (5 * SECSPERMIN)
 //#define USER_UPLOAD_INTERVAL (30 * SECSPERMIN)
 #define USER_SAMPLE_INTERVAL (10)
-#define USER_UPLOAD_INTERVAL (100)
+#define USER_UPLOAD_INTERVAL (120)
 #define SECSPERHOUR 3600
 #define SECSPERMIN 60	
 #define INTERVAL_CMEP "00000005"
@@ -645,10 +645,10 @@ void timer_thread_sample(union sigval v)
 				second_trans(get_sample_interval(),interval_string);
 				//fprintf(meter->file,"%s%s%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%2d","MEPMD01,19970819,Schneider Electric,,,","SECN\\Schneider Electric China|SBMV\\Beijing Middle Voltage Plant","201308010358,SBMV.MCSET.FHU_HVAC_Lighting1|129","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,1,(info->tm_year + 1900),info->tm_mon,(info->tm_mday + 1),info->tm_hour,info->tm_min);
 				if(counter == 1)
-					fprintf(meter->file,"%s%s%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%02d,,%f#","MEPMD01,19970819,Schneider Electric,,,","SECN\\Schneider Electric China|SBMV\\Beijing Middle Voltage Plant","201308010358,SBMV.MCSET.FHU_HVAC_Lighting1|129","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(),(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,modbus_get_float_cdab(tab_rp_registers));
+				fprintf(meter->file,"%s%s%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%2d,,%f@","MEPMD01,19970819,Schneider Electric,,,","SECN\\Schneider Electric China|SBMV\\Beijing Middle Voltage Plant","201308010358,SBMV.MCSET.FHU_HVAC_Lighting1|129","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(),(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,modbus_get_float_cdab(tab_rp_registers));
 				//	fprintf(meter->file,"%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%02d%02d,,%f ","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(), (info->tm_year + 1900),(info->tm_mon+1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec,modbus_get_float_cdab(tab_rp_registers));
 				else	
-					fprintf(meter->file,",,,%f#",modbus_get_float_cdab(tab_rp_registers));
+					fprintf(meter->file,",,,%f@",modbus_get_float_cdab(tab_rp_registers));
 		
 				fflush(meter->file);
     		}
@@ -680,8 +680,7 @@ close:
 		{
 			char system_arguments[128];
 
-			//sprintf(system_arguments,"awk '{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\" \"}print \"\"}}' %s | sed s/[[:space:]]//g > %s_new",meter->file_name,meter->file_name);
-			sprintf(system_arguments,"awk 'BEGIN{FS=\"#\"}{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\"#\"}print \"\"}}' %s | sed s/#//g > %s_new",meter->file_name,meter->file_name);
+			sprintf(system_arguments,"awk '{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\" \"}print \"\"}}' %s | sed s/[[:space:]]//g > %s_new",meter->file_name,meter->file_name);
 			if( system(system_arguments) != 0) 
 				(void *)fprintf(stderr,"system call error.\n"); 
 

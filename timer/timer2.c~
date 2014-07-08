@@ -26,7 +26,7 @@ enum {
 //#define USER_SAMPLE_INTERVAL (5 * SECSPERMIN)
 //#define USER_UPLOAD_INTERVAL (30 * SECSPERMIN)
 #define USER_SAMPLE_INTERVAL (10)
-#define USER_UPLOAD_INTERVAL (100)
+#define USER_UPLOAD_INTERVAL (30)
 #define SECSPERHOUR 3600
 #define SECSPERMIN 60	
 #define INTERVAL_CMEP "00000005"
@@ -44,10 +44,8 @@ typedef struct{
 	unsigned char num_attribute;	//num of atrributes a meter provides, MAX:255	
 	Meter_Attribute *attribute;	//pointer to a specific meter's attriubtes
 	char *file_name;	//file path for sampling data file
-	char *file_tmp;
 	//int fd;		//file descriptor for sampling data file
 	FILE * file;		//file descriptor for sampling data file
-	//FILE * file_tmp;		//file descriptor for sampling data file
 	char *commodity;    //type of the meter, such as electricity,gas,water,etc.
 }Meter;
 
@@ -525,7 +523,7 @@ void itimer_init(struct tm*info, struct itimerspec * it_spec,unsigned int it_int
 	}
 	
 	printf("interval timer interval:%d\n",it_spec->it_interval.tv_sec);
-	printf("interval timer secs left:%d\n",it_spec->it_value.tv_sec);
+	printf("inteval timer secs left:%d\n",it_spec->it_value.tv_sec);
 
 }
 
@@ -535,14 +533,12 @@ void timer_thread_sample(union sigval v)
 	counter++;
 
 	time_t rawtime;
-    	struct tm *info, *info_local;
+    	struct tm *info;
 	printf("******sample timer expired******.\n");
     time(&rawtime);
     /* Get GMT time */
     info = gmtime(&rawtime );
-    info_local = localtime(&rawtime);
     printf("UTC: %2d:%02d:%02d\n", info->tm_hour, info->tm_min,info->tm_sec);
-    printf("LOCAL: %2d:%02d:%02d\n", info_local->tm_hour, info_local->tm_min,info_local->tm_sec);
 
 //*****************************sampling data**********************//
 	Sll *l;
@@ -550,7 +546,6 @@ void timer_thread_sample(union sigval v)
 
     int n=0;
 	char file_name[32];
-	char file_name_tmp[32];
     for (l=head; l; l=l->next)
     {
 
@@ -558,23 +553,15 @@ void timer_thread_sample(union sigval v)
 
 //*********************for every meter,open the corresponding file for saving sampling data first//
 		if(counter == 1){
-			sprintf(file_name,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
-			sprintf(file_name_tmp,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001_tmp",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			sprintf(file_name,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001",meter->modbus_id,(info->tm_year + 1900),info->tm_mon,(info->tm_mday + 1),info->tm_hour,info->tm_min,info->tm_sec);
 
 			meter->file_name = strdup(file_name);
-			meter->file_tmp = strdup(file_name_tmp);
     		if (meter->file_name == NULL) 
     		{
        			(void) fprintf(stderr,"malloc failed\n");
        			exit(-1);
     		}
-    		if (meter->file_tmp == NULL) 
-    		{
-       			(void) fprintf(stderr,"malloc failed\n");
-       			exit(-1);
-    		}
 			(void *)fprintf(stderr,"the file path is %s.\n",meter->file_name);
-			(void *)fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp);
 		}
 			(void *)fprintf(stderr,"opening file %s.\n",meter->file_name);
 
@@ -608,8 +595,8 @@ void timer_thread_sample(union sigval v)
     	float float_value;
 		char interval_string[16];
 
-    	ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
-    	//ctx = modbus_new_rtu("/dev/ttyS0", 19200, 'N', 8, 1);
+    	//ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
+    	ctx = modbus_new_rtu("/dev/ttyS0", 19200, 'N', 8, 1);
     	if (ctx == NULL) {
        	 	fprintf(stderr, "Unable to allocate libmodbus context\n");
         	return -1;
@@ -641,57 +628,58 @@ void timer_thread_sample(union sigval v)
 		printf("reading register.\n");
     		rc = modbus_read_registers(ctx, attribute->addr,
                                attribute->reg_num, tab_rp_registers);
-    		if (rc == attribute->reg_num) {
+    		if ("rc == attribute->reg_num") {
 				second_trans(get_sample_interval(),interval_string);
-				//fprintf(meter->file,"%s%s%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%2d","MEPMD01,19970819,Schneider Electric,,,","SECN\\Schneider Electric China|SBMV\\Beijing Middle Voltage Plant","201308010358,SBMV.MCSET.FHU_HVAC_Lighting1|129","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,1,(info->tm_year + 1900),info->tm_mon,(info->tm_mday + 1),info->tm_hour,info->tm_min);
-				if(counter == 1)
-					fprintf(meter->file,"%s%s%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%02d,,%f#","MEPMD01,19970819,Schneider Electric,,,","SECN\\Schneider Electric China|SBMV\\Beijing Middle Voltage Plant","201308010358,SBMV.MCSET.FHU_HVAC_Lighting1|129","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(),(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,modbus_get_float_cdab(tab_rp_registers));
-				//	fprintf(meter->file,"%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%02d%02d,,%f ","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(), (info->tm_year + 1900),(info->tm_mon+1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec,modbus_get_float_cdab(tab_rp_registers));
-				else	
-					fprintf(meter->file,",,,%f#",modbus_get_float_cdab(tab_rp_registers));
-		
-				fflush(meter->file);
+				fprintf(meter->file,"%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%2d","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,1,(info->tm_year + 1900),info->tm_mon,(info->tm_mday + 1),info->tm_hour,info->tm_min);
+				//fprintf(meter->file,"%f ",modbus_get_float_cdab(tab_rp_registers));
+				fprintf(meter->file,"\n");
     		}
 			else
         			printf("FAILED (nb points %d)\n", rc);
+				
+#if 0
+    		if (rc != attribute->reg_num) {
+        		printf("FAILED (nb points %d)\n", rc);
+        		goto close;
+    		}
+
+			if(!strcmp(attribute->value_type,"float")){
+    			tmp_value = tab_rp_registers[0];
+    			tab_rp_registers[0] = tab_rp_registers[1];
+    			tab_rp_registers[1] = tmp_value;
+			}
+   
+    		float_value = modbus_get_float(tab_rp_registers);
+    		printf("float value is %f %s\n",float_value,attribute->value_unit);  
+#endif
+
 
 		}
-			fprintf(meter->file,"\n");
+	
 			(void *)fprintf(stderr,"closing file %s.\n",meter->file_name);
 			fclose(meter->file);
 
 close:
-    	/* Free the memory */
+    /* Free the memory */
 
-    	printf("closing the modbus\n");
-    	free(tab_rp_registers);
+    printf("closing the modbus\n");
+    free(tab_rp_registers);
 
-    	/* Close the connection */
-    	modbus_close(ctx);
-    	modbus_free(ctx);
-   
+    /* Close the connection */
+    modbus_close(ctx);
+    modbus_free(ctx);
+    }
 
 
 //******************************end of sampling data******************//
 
 
-		printf("counter is %d.\n",counter);
-		if(counter ==  get_upload_interval() / get_sample_interval() )
-		{
-			char system_arguments[128];
-
-			//sprintf(system_arguments,"awk '{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\" \"}print \"\"}}' %s | sed s/[[:space:]]//g > %s_new",meter->file_name,meter->file_name);
-			sprintf(system_arguments,"awk 'BEGIN{FS=\"#\"}{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\"#\"}print \"\"}}' %s | sed s/#//g > %s_new",meter->file_name,meter->file_name);
-			if( system(system_arguments) != 0) 
-				(void *)fprintf(stderr,"system call error.\n"); 
-
-		}
+	printf("counter is %d.\n",counter);
+	if(counter ==  get_upload_interval() / get_sample_interval() )
+	{
+		printf("######upload time######.\n");
+		counter = 0;
 	}
-		if(counter ==  get_upload_interval() / get_sample_interval() )
-		{
-			printf("######upload time######.\n");
-			counter = 0;
-		}
 }
 void timer_thread_upload(union sigval v)
 {
@@ -737,7 +725,7 @@ int main()
 
 
    	time_t rawtime;
-   	struct tm *info, *info_local;
+   	struct tm *info;
 
 	//timer_t timerid_sample, timerid_upload;
 	timer_t timerid_sample;
@@ -771,13 +759,9 @@ int main()
 	time(&rawtime);
 	/* Get GMT time */
 	info = gmtime(&rawtime );
-	info_local = localtime(&rawtime);
 	printf("Current world clock:\n");
 	//printf("UTC: %2d:%02d:%02d\n\n", info->tm_hour, info->tm_min,info->tm_sec);
 	printf("UTC: %4d%02d%02d%02d%02d%02d\n\n", (info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour, info->tm_min,info->tm_sec);
-	printf("Current local clock:\n");
-	//printf("UTC: %2d:%02d:%02d\n\n", info->tm_hour, info->tm_min,info->tm_sec);
-	printf("UTC: %4d%02d%02d%02d%02d%02d\n\n", (info_local->tm_year + 1900),(info_local->tm_mon + 1),info_local->tm_mday,info_local->tm_hour, info_local->tm_min,info_local->tm_sec);
 	
 	   
 	//struct itimerspec it_sample,it_upload;
