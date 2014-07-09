@@ -28,7 +28,7 @@ enum {
 
 #define CLOCKID CLOCK_REALTIME
 
-//#define USER_SAMPLE_INTERVAL (5 * SECSPERMIN)
+//#define USER_SAMPLE_INTERVAL (85 * SECSPERMIN)
 //#define USER_UPLOAD_INTERVAL (30 * SECSPERMIN)
 #define USER_SAMPLE_INTERVAL (10)
 #define USER_UPLOAD_INTERVAL (40)
@@ -94,7 +94,13 @@ static void freeData(void **data)
     }
 	printf("\n");
 }
+
+/*  global meter single linked list head
+	super important, be aware of mutual exclusion
+	global shared resources
+*/
 Sll *head = NULL;
+
 void meter_init(void)
 {
     Sll
@@ -107,34 +113,28 @@ void meter_init(void)
     int
         n=0;
 
+
     (void) fprintf(stderr,
 "=========================================================================\n");
-    (void) fprintf(stderr," Testing Append a node at the beginning of a list\n");
+    (void) fprintf(stderr," Allocate a new Meter\n");
     (void) fprintf(stderr,
 "=========================================================================\n");
 
+	//allocate a meter
     addr=(Meter*) malloc(sizeof(Meter));
-
     if (addr == NULL) {
         (void) fprintf(stderr," malloc failed\n");
     	destroyNodes(&head,freeData);
         exit(-1);
     }
-
-    (void) fprintf(stderr,"\n---------------[ appending ]----------\n");
-    new=allocateNode((void *) addr);
-	
-    appendNode(&head,&new);
-
-    /*
-    ** it will be the last node
-    */
+	//initialize meter
     addr->modbus_id = 2;
     addr->num_attribute = 7;
-
 	addr->commodity = strdup("E");   //the meter is a Electricity type
 	if(addr->commodity == NULL)
-		(void *)fprintf(stderr,"failed to allocate meter commodity.\n");
+		(void )fprintf(stderr,"failed to allocate meter commodity.\n");
+
+	//allocate meter attributes
     addr->attribute = (Meter_Attribute *) malloc(addr->num_attribute * sizeof(Meter_Attribute));
     if(addr->attribute == NULL)
     {
@@ -142,32 +142,10 @@ void meter_init(void)
     	destroyNodes(&head,freeData);
 		exit(-1);
     }
-   
-    (void) fprintf(stderr,
-"=========================================================================\n");
-    (void) fprintf(stderr," initialzing meter attributes\n");
-    (void) fprintf(stderr,
-"=========================================================================\n");
-
-#if 0
-    int i;
-    for(i = 0; i < addr->num_attribute;i++)
-    {
-		addr->attribute->addr = 999;
-		addr->attribute->reg_num = 2;
-		addr->attribute->scale = 1;
-		addr->attribute->value_type = strdup("float");
-		addr->attribute->value_unit = strdup("KWh");
-    	if (addr->attribute->value_type == NULL || addr->attribute->value_unit == NULL) 
-    	{
-       		(void) fprintf(stderr,"malloc failed\n");
-       		exit(-1);
-    	}
-    }
-
-#endif
-
+	//initialize meter attributes
     Meter_Attribute *tmp = addr->attribute;
+
+    //1st attribute
     tmp->addr = 999;
     tmp->reg_num = 2;
     tmp->scale = 1;
@@ -175,10 +153,10 @@ void meter_init(void)
     tmp->value_unit = strdup("KWh");
     if (tmp->value_type == NULL || tmp->value_unit == NULL) 
     {
-   	(void) fprintf(stderr,"malloc failed\n");
+   		(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
- 
+	//2nd attribute 
     tmp = tmp + 1;
     tmp->addr = 1001;
     tmp->reg_num = 2;
@@ -190,7 +168,7 @@ void meter_init(void)
    	(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
-   
+    //3rd attribute 
     tmp = tmp + 1;
     tmp->addr = 1003;
     tmp->reg_num = 2;
@@ -202,7 +180,7 @@ void meter_init(void)
    	(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
-
+	//4th attribute
     tmp = tmp + 1;
     tmp->addr = 1005;
     tmp->reg_num = 2;
@@ -214,7 +192,7 @@ void meter_init(void)
    	(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
-
+    //5th attribute
     tmp = tmp + 1;
     tmp->addr = 1007;
     tmp->reg_num = 2;
@@ -226,6 +204,7 @@ void meter_init(void)
    	(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
+	//6th attribute
     tmp = tmp + 1;
     tmp->addr = 1009;
     tmp->reg_num = 2;
@@ -237,6 +216,7 @@ void meter_init(void)
    	(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
+	//7th attribute
     tmp = tmp + 1;
     tmp->addr = 1013;
     tmp->reg_num = 2;
@@ -248,6 +228,11 @@ void meter_init(void)
    	(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
+"=========================================================================\n");
+    (void) fprintf(stderr," meter attributes are as follow\n");
+    (void) fprintf(stderr,
+"=========================================================================\n");
+
     Meter_Attribute *attribute = addr->attribute;
     int i;
     for(i = 0; i < addr->num_attribute && attribute; i++,attribute++){
@@ -259,202 +244,30 @@ void meter_init(void)
     	(void) fprintf(stderr,"\n");
     }
 
-#if 0    
-    (void) fprintf(stderr,"Node: %d\n", ++n);
-    (void) fprintf(stderr,"  %d\n",addr->modbus_id);
-    (void) fprintf(stderr,"  %d\n",addr->num_attribute);
-    (void) fprintf(stderr,"  %d\n",addr->attribute->addr);
-    (void) fprintf(stderr,"  %d\n",addr->attribute->reg_num);
-    (void) fprintf(stderr,"  %d\n",addr->attribute->scale);
-    (void) fprintf(stderr,"  %s\n",addr->attribute->value_type);
-    (void) fprintf(stderr,"  %s\n",addr->attribute->value_unit);
-#endif
 
-    /*
-    ** print
-    */
-
-#if 0
-    (void) fprintf(stderr,"\n---------------[ printing ]----------\n");
-    n=0;
-    for (l=head; l; l=l->next)
-    {
-        addr=(Meter*) l->data;
-    	(void) fprintf(stderr,"Node: %d\n", ++n);
-    	(void) fprintf(stderr,"  %d\n",addr->modbus_id);
-    	(void) fprintf(stderr,"  %d\n",addr->num_attribute);
-    	(void) fprintf(stderr,"  %d\n",addr->attribute->addr);
-    	(void) fprintf(stderr,"  %d\n",addr->attribute->reg_num);
-    	(void) fprintf(stderr,"  %d\n",addr->attribute->scale);
-    	(void) fprintf(stderr,"  %s\n",addr->attribute->value_type);
-    	(void) fprintf(stderr,"  %s\n",addr->attribute->value_unit);
-    }
-    /*
-    ** free nodes
-    */
-    (void) fprintf(stderr,"\n---------------[ freeing ]----------\n");
-    destroyNodes(&head,freeData);
-#endif
-#if 0
     (void) fprintf(stderr,
 "=========================================================================\n");
     (void) fprintf(stderr," Testing Append a node at the beginning of a list\n");
     (void) fprintf(stderr,
 "=========================================================================\n");
 
-    addr=(Meter*) malloc(sizeof(Meter));
-
-    if (addr == NULL) {
-        (void) fprintf(stderr," malloc failed\n");
-    	destroyNodes(&head,freeData);
-        exit(-1);
-    }
-
-    (void) fprintf(stderr,"\n---------------[ appending ]----------\n");
+    //allocate a new node
     new=allocateNode((void *) addr);
-	
+    //append the new node to the list	
     appendNode(&head,&new);
-
-    /*
-    ** it will be the last node
-    */
-    addr->modbus_id = 2;
-    addr->num_attribute = 3;
-    addr->attribute = (Meter_Attribute *) malloc(addr->num_attribute * sizeof(Meter_Attribute));
-    if(addr->attribute == NULL)
-    {
-		(void)fprintf(stderr," Attribute:malloc failed\n");
-    	destroyNodes(&head,freeData);
-		exit(-1);
-    }
-   
-    (void) fprintf(stderr,
-"=========================================================================\n");
-    (void) fprintf(stderr," initialzing meter attributes\n");
-    (void) fprintf(stderr,
-"=========================================================================\n");
-#endif 
-
-#if 0
-    int i;
-    for(i = 0; i < addr->num_attribute;i++)
-    {
-		addr->attribute->addr = 999;
-		addr->attribute->reg_num = 2;
-		addr->attribute->scale = 1;
-		addr->attribute->value_type = strdup("float");
-		addr->attribute->value_unit = strdup("KWh");
-    	if (addr->attribute->value_type == NULL || addr->attribute->value_unit == NULL) 
-    	{
-       		(void) fprintf(stderr,"malloc failed\n");
-       		exit(-1);
-    	}
-    }
-
-#endif
-
-#if 0
-    tmp = addr->attribute;
-    tmp->addr = 9990;
-    tmp->reg_num = 2;
-    tmp->scale = 1;
-    tmp->value_type = strdup("float");
-    tmp->value_unit = strdup("KWh");
-    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
-    {
-   	(void) fprintf(stderr,"malloc failed\n");
-        exit(-1);
-    }
- 
-    tmp = tmp + 1;
-    tmp->addr = 10010;
-    tmp->reg_num = 2;
-    tmp->scale = 1;
-    tmp->value_type = strdup("float");
-    tmp->value_unit = strdup("KVAh");
-    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
-    {
-   	(void) fprintf(stderr,"malloc failed\n");
-        exit(-1);
-    }
-   
-    tmp = tmp + 1;
-    tmp->addr = 10030;
-    tmp->reg_num = 2;
-    tmp->scale = 1;
-    tmp->value_type = strdup("float");
-    tmp->value_unit = strdup("KVarh");
-    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
-    {
-   	(void) fprintf(stderr,"malloc failed\n");
-        exit(-1);
-    }
-
-    tmp = tmp + 1;
-    tmp->addr = 10050;
-    tmp->reg_num = 2;
-    tmp->scale = 1;
-    tmp->value_type = strdup("float");
-    tmp->value_unit = strdup("KW");
-    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
-    {
-   	(void) fprintf(stderr,"malloc failed\n");
-        exit(-1);
-    }
-    tmp = tmp + 1;
-    tmp->addr = 1007;
-    tmp->reg_num = 2;
-    tmp->scale = 1;
-    tmp->value_type = strdup("float");
-    tmp->value_unit = strdup("KVA");
-    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
-    {
-   	(void) fprintf(stderr,"malloc failed\n");
-        exit(-1);
-    }
-    tmp = tmp + 1;
-    tmp->addr = 1009;
-    tmp->reg_num = 2;
-    tmp->scale = 1;
-    tmp->value_type = strdup("float");
-    tmp->value_unit = strdup("KVar");
-    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
-    {
-   	(void) fprintf(stderr,"malloc failed\n");
-        exit(-1);
-    }
-    tmp = tmp + 1;
-    tmp->addr = 1013;
-    tmp->reg_num = 2;
-    tmp->scale = 1;
-    tmp->value_type = strdup("float");
-    tmp->value_unit = strdup("Volt");
-    if (tmp->value_type == NULL || tmp->value_unit == NULL) 
-    {
-   	(void) fprintf(stderr,"malloc failed\n");
-        exit(-1);
-    }
-    attribute = addr->attribute;
-    for(i = 0; i < addr->num_attribute && attribute; i++,attribute++){
-    	(void) fprintf(stderr,"  %d\n",attribute->addr);
-    	(void) fprintf(stderr,"  %d\n",attribute->reg_num);
-    	(void) fprintf(stderr,"  %d\n",attribute->scale);
-    	(void) fprintf(stderr,"  %s\n",attribute->value_type);
-    	(void) fprintf(stderr,"  %s\n",attribute->value_unit);
-    	(void) fprintf(stderr,"\n");
-    }
-
-#endif
-
 }
 
 
-//unit:senconds
+//unit:seconds
 typedef struct {
 	unsigned int sample_interval;
 	unsigned int upload_interval;
 }Interval;
 
+/*  user defined sample interval and upload interval
+	super important, be aware of mutual exclusion
+	global shared resources
+*/
 Interval interval;
 
 unsigned int get_sample_interval()
@@ -467,21 +280,6 @@ unsigned int get_upload_interval()
 {
 	return USER_UPLOAD_INTERVAL;
 }
-
-#define SECSPERHOUR 3600
-#define SECSPERMIN 60	
-
-void second_trans(unsigned int seconds,char *time)
-{
-	unsigned int day,hour,min;
-	day = seconds / (60 * 60 * 24);
-	hour = seconds / (60 * 60) % 24;
-	min = seconds / 60 % 60;
-
-	sprintf(time,"%02d%02d%02d%02d",0,day,hour,min);
-	
-}
-
 void interval_init(Interval *interval)
 {
 	//before the create the interval timer, we need to initialize the interval first
@@ -494,6 +292,20 @@ void interval_init(Interval *interval)
 
 }
 
+#define SECSPERHOUR 3600
+#define SECSPERMIN 60	
+
+// interval in seconds to MON:DAY:HH:MM string
+void second_trans(unsigned int seconds,char *time)
+{
+	unsigned int day,hour,min;
+	day = seconds / (60 * 60 * 24);
+	hour = seconds / (60 * 60) % 24;
+	min = seconds / 60 % 60;
+	sprintf(time,"%02d%02d%02d%02d",0,day,hour,min);
+}
+
+// initialize interval timer according to user defined sample and upload interval
 void itimer_init(struct tm*info, struct itimerspec * it_spec,unsigned int it_interval)
 {
 
@@ -529,14 +341,13 @@ void itimer_init(struct tm*info, struct itimerspec * it_spec,unsigned int it_int
 
 	}
 	
-	printf("interval timer interval:%d\n",it_spec->it_interval.tv_sec);
-	printf("interval timer secs left:%d\n",it_spec->it_value.tv_sec);
+	//printf("interval timer interval:%d\n",it_spec->it_interval.tv_sec);
+	//printf("interval timer secs left:%d\n",it_spec->it_value.tv_sec);
 
 }
-/* NOTE: if you want this example to work on Windows with libcurl as a
-   DLL, you MUST also provide a read callback with CURLOPT_READFUNCTION.
-   Failing to do so will give you a crash since a DLL may not use the
-   variable's memory when passed in to it from an app like this. */
+
+
+// callback function which gets called when uploading a file to ftp server
 static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 {
   curl_off_t nread;
@@ -552,20 +363,31 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
   return retcode;
 }
 
+// sample thread start function which runs when sampling interval expires
 void timer_thread_sample(union sigval v)
 {
+
+
+/*  thread shared resources
+	super important, be aware of mutual exclusion
+	counter: how many times the interval timer expires 
+*/
 	static unsigned int counter = 0;
 	counter++;
 
 	time_t rawtime;
-    	struct tm *info, *info_local;
-	printf("******sample timer expired******.\n");
+   	struct tm *info, *info_local;
     time(&rawtime);
     /* Get GMT time */
     info = gmtime(&rawtime );
     info_local = localtime(&rawtime);
-    printf("UTC: %2d:%02d:%02d\n", info->tm_hour, info->tm_min,info->tm_sec);
-    printf("LOCAL: %2d:%02d:%02d\n", info_local->tm_hour, info_local->tm_min,info_local->tm_sec);
+    (void) fprintf(stderr,
+"=========================================================================\n");
+    (void) fprintf(stderr," Sampling timer expired\n");
+    (void) fprintf(stderr,"UTC: %2d:%02d:%02d\n", info->tm_hour, info->tm_min,info->tm_sec);
+    (void) fprintf(stderr,"LOCAL: %2d:%02d:%02d\n", info_local->tm_hour, info_local->tm_min,info_local->tm_sec);
+    (void) fprintf(stderr,
+"=========================================================================\n");
 
 //*****************************sampling data**********************//
 	Sll *l;
@@ -573,45 +395,36 @@ void timer_thread_sample(union sigval v)
 
     int n=0;
 	char file_name[32];
-	char file_name_tmp[32];
+	char file_tmp_name[32];
+
+	//head: the global meter linked list head
     for (l=head; l; l=l->next)
     {
-
+		//get a meter
         meter = (Meter*) l->data;
 
-//*********************for every meter,open the corresponding file for saving sampling data first//
+		//sample data file gets created the first time sample interval timer expires
 		if(counter == 1){
+			//file_name store the final file to upload
 			sprintf(file_name,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
-			sprintf(file_name_tmp,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001_tmp",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			//file_name_tmp store the tmp file
+			sprintf(file_tmp_name,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001_tmp",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
 
 			meter->file_name = strdup(file_name);
-			meter->file_tmp_name = strdup(file_name_tmp);
-    		if (meter->file_name == NULL) 
+			meter->file_tmp_name = strdup(file_tmp_name);
+    		if (meter->file_name == NULL || meter->file_tmp_name == NULL) 
     		{
        			(void) fprintf(stderr,"malloc failed\n");
        			exit(-1);
     		}
-    		if (meter->file_tmp_name == NULL) 
-    		{
-       			(void) fprintf(stderr,"malloc failed\n");
-       			exit(-1);
-    		}
-			(void *)fprintf(stderr,"the file path is %s.\n",meter->file_name);
-			(void *)fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp_name);
+			(void )fprintf(stderr,"the file path is %s.\n",meter->file_name);
+			(void )fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp_name);
 		}
-			(void *)fprintf(stderr,"opening file %s.\n",meter->file_tmp_name);
+		(void )fprintf(stderr,"opening file %s.\n",meter->file_tmp_name);
 
-			//meter->fd = open(meter->file_name,O_WRONLY | O_CREAT);			
-//			meter->file = fopen(meter->file_name,"a");			
-			meter->file = fopen(meter->file_tmp_name,"a");			
-			if(meter->file == NULL)
-				perror("fopen failed:");
-//			(void *)fprintf(stderr,"closing file %s.\n",meter->file_name);
-//			fclose(meter->file);
-	
-
-
-
+		meter->file = fopen(meter->file_tmp_name,"a");			
+		if(meter->file == NULL)
+			perror("fopen failed:");
 
 
 //**********************************************************************************************//
@@ -632,11 +445,19 @@ void timer_thread_sample(union sigval v)
     	float float_value;
 		char interval_string[16];
 
+		/* gateway RS485 port config
+		   Portname: /dev/ttyUSB0
+		   Baudrate: 19200
+		   Even/Odd: None
+		   Databits: 8
+		   Stopbits: 1
+		*/
+
     	ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
     	//ctx = modbus_new_rtu("/dev/ttyS0", 19200, 'N', 8, 1);
     	if (ctx == NULL) {
        	 	fprintf(stderr, "Unable to allocate libmodbus context\n");
-        	return -1;
+        	exit -1;
     	}
     	modbus_set_debug(ctx, TRUE);
     	modbus_set_error_recovery(ctx,
@@ -647,7 +468,7 @@ void timer_thread_sample(union sigval v)
     	if (modbus_connect(ctx) == -1) {
         	fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
         	modbus_free(ctx);
-        	return -1;
+        	exit -1;
     	}
 
 
@@ -685,7 +506,7 @@ void timer_thread_sample(union sigval v)
 
 		}
 			fprintf(meter->file,"\n");
-			(void *)fprintf(stderr,"closing file %s.\n",meter->file_tmp_name);
+			(void )fprintf(stderr,"closing file %s.\n",meter->file_tmp_name);
 			fclose(meter->file);
 
 close:
@@ -711,7 +532,7 @@ close:
 			//sprintf(system_arguments,"awk '{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\" \"}print \"\"}}' %s | sed s/[[:space:]]//g > %s_new",meter->file_name,meter->file_name);
 			sprintf(system_arguments,"awk 'BEGIN{FS=\"#\"}{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\"#\"}print \"\"}}' %s | sed s/#//g > %s",meter->file_tmp_name,meter->file_name);
 			if( system(system_arguments) != 0) 
-				(void *)fprintf(stderr,"system call error.\n"); 
+				(void )fprintf(stderr,"system call error.\n"); 
 
 		}
 	}
@@ -739,7 +560,7 @@ close:
 			  /* get the file size of the local file */
 			  if(stat(meter->file_name, &file_info)) {
 			    printf("Couldnt open '%s': %s\n", LOCAL_FILE, strerror(errno));
-			    return 1;
+			    exit -1;
 			  }
 			  fsize = (curl_off_t)file_info.st_size;
 			
