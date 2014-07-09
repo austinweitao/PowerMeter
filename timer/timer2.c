@@ -17,8 +17,9 @@
 #include <curl/curl.h>
 #define LOCAL_FILE      "/tmp/uploadthis.txt"
 #define UPLOAD_FILE_AS  "while-uploading.txt"
-#define REMOTE_URL      "ftp://austin:weitao@192.168.148.137:990/"  UPLOAD_FILE_AS
+#define REMOTE_URL      "ftp://austin:weitao@192.168.148.137:990/Meter-Datas/"  UPLOAD_FILE_AS
 #define RENAME_FILE_TO  "SBS_Meter_PM7500.txt"
+
 enum {
     TCP,
     TCP_PI,
@@ -48,13 +49,26 @@ typedef struct{
 	unsigned char modbus_id;	//modbus id for a specific meter 
 	unsigned char num_attribute;	//num of atrributes a meter provides, MAX:255	
 	Meter_Attribute *attribute;	//pointer to a specific meter's attriubtes
-	char *file_name;	//file path for sampling data file
-	char *file_tmp_name;
+	char *file_path;	//file path for sampling data file
+	char *file_tmp_path;
+	char *file_name;
+	char *file_path_xml;	//file path for sampling data file
+	char *file_tmp_path_xml;
+	char *file_name_xml;
+	char *file_path_csv;	//file path for sampling data file
+	char *file_tmp_path_csv;
+	char *file_name_csv;
 	//int fd;		//file descriptor for sampling data file
 	FILE * file;		//file descriptor for sampling data file
 	FILE * file_tmp;		//file descriptor for sampling data file
+	FILE * file_xml;		//file descriptor for sampling data file
+	FILE * file_tmp_xml;		//file descriptor for sampling data file
+	FILE * file_csv;		//file descriptor for sampling data file
+	FILE * file_tmp_csv;		//file descriptor for sampling data file
 	char *commodity;    //type of the meter, such as electricity,gas,water,etc.
 }Meter;
+
+
 
 static void freeData(void **data)
 {
@@ -228,6 +242,7 @@ void meter_init(void)
    	(void) fprintf(stderr,"malloc failed\n");
         exit(-1);
     }
+	(void)fprintf(stderr,
 "=========================================================================\n");
     (void) fprintf(stderr," meter attributes are as follow\n");
     (void) fprintf(stderr,
@@ -362,6 +377,91 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
           " bytes from file\n", nread);
   return retcode;
 }
+static void upload_file(char *file_to_upload, char *rename_to)
+{
+  				CURL *curl;
+  				CURLcode res;
+  				FILE *hd_src;
+			  	struct stat file_info;
+			  	curl_off_t fsize;
+				
+				  struct curl_slist *headerlist=NULL;
+				  static const char buf_1 [] = "RNFR " UPLOAD_FILE_AS;
+				  static char buf_2 [64];
+				  sprintf(buf_2,"RNTO %s",rename_to);
+				  /* get the file size of the local file */
+				  if(stat(file_to_upload, &file_info)) {
+				    printf("Couldnt open '%s': %s\n", LOCAL_FILE, strerror(errno));
+				    exit -1;
+				  }
+				  fsize = (curl_off_t)file_info.st_size;
+				  
+				
+				  printf("Local file size: %" CURL_FORMAT_CURL_OFF_T " bytes.\n", fsize);
+				
+				  /* get a FILE * of the same file */
+				  hd_src = fopen(file_to_upload, "rb");
+				
+				  /* In windows, this will init the winsock stuff */
+				  curl_global_init(CURL_GLOBAL_ALL);
+				
+				  /* get a curl handle */
+				  curl = curl_easy_init();
+				  if(curl) {
+				    /* build a list of commands to pass to libcurl */
+				    headerlist = curl_slist_append(headerlist, buf_1);
+				    headerlist = curl_slist_append(headerlist, buf_2);
+				
+				    /* We activate SSL and we require it for both control and data */
+				    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
+				
+				    /* Switch on full protocol/debug output */
+				    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+				
+				    curl_easy_setopt (curl, CURLOPT_SSL_VERIFYPEER, 0L); 
+				    curl_easy_setopt (curl, CURLOPT_SSL_VERIFYHOST, 0L); 
+				
+				    /* we want to use our own read function */
+				    curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
+				
+				    /* enable uploading */
+				    curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+	
+	    /* specify target */
+			    curl_easy_setopt(curl,CURLOPT_URL, REMOTE_URL);
+			
+			    /* pass in that last of FTP commands to run after the transfer */
+			    curl_easy_setopt(curl, CURLOPT_POSTQUOTE, headerlist);
+			
+			    /* now specify which file to upload */
+			    curl_easy_setopt(curl, CURLOPT_READDATA, hd_src);
+			
+			    /* Set the size of the file to upload (optional).  If you give a *_LARGE
+			       option you MUST make sure that the type of the passed-in argument is a
+			       curl_off_t. If you use CURLOPT_INFILESIZE (without _LARGE) you must
+			       make sure that to pass in a type 'long' argument. */
+			    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
+			                     (curl_off_t)fsize);
+			
+			    /* Now run off and do what you've been told! */
+			    res = curl_easy_perform(curl);
+			    /* Check for errors */
+			    if(res != CURLE_OK)
+			      fprintf(stderr, "curl_easy_perform() failed: %s\n",
+			              curl_easy_strerror(res));
+			
+			    /* clean up the FTP commands list */
+			    curl_slist_free_all (headerlist);
+			
+			    /* always cleanup */
+			    curl_easy_cleanup(curl);
+			  }
+			  fclose(hd_src); /* close the local file */
+			
+			  curl_global_cleanup();
+
+
+}
 
 // sample thread start function which runs when sampling interval expires
 void timer_thread_sample(union sigval v)
@@ -394,8 +494,19 @@ void timer_thread_sample(union sigval v)
 	Meter *meter;
 
     int n=0;
-	char file_name[32];
-	char file_tmp_name[32];
+	char file_path[64];
+	char file_tmp_path[64];
+	char file_name[64];
+
+
+	char file_path_xml[64];
+	char file_tmp_path_xml[64];
+	char file_name_xml[64];
+
+
+	char file_path_csv[64];
+	char file_tmp_path_csv[64];
+	char file_name_csv[64];
 
 	//head: the global meter linked list head
     for (l=head; l; l=l->next)
@@ -405,26 +516,83 @@ void timer_thread_sample(union sigval v)
 
 		//sample data file gets created the first time sample interval timer expires
 		if(counter == 1){
-			//file_name store the final file to upload
-			sprintf(file_name,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
-			//file_name_tmp store the tmp file
-			sprintf(file_tmp_name,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001_tmp",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			//file name to save
+			sprintf(file_name,"sbs%d_%4d%02d%02d%02d%02d%02d_001.cmep",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			//file_path store the final file to upload
+			sprintf(file_path,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001.cmep",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			//file_path_tmp store the tmp file
+			sprintf(file_tmp_path,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001_tmp.cmep",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
 
+
+			sprintf(file_name_xml,"sbs%d_%4d%02d%02d%02d%02d%02d_001.xml",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			//file_path store the final file to upload
+			sprintf(file_path_xml,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001.xml",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			//file_path_tmp store the tmp file
+			sprintf(file_tmp_path_xml,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001_tmp.xml",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+
+
+			sprintf(file_name_csv,"sbs%d_%4d%02d%02d%02d%02d%02d_001.csv",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			//file_path store the final file to upload
+			sprintf(file_path_csv,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001.csv",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+			//file_path_tmp store the tmp file
+			sprintf(file_tmp_path_csv,"/tmp/sbs%d_%4d%02d%02d%02d%02d%02d_001_tmp.csv",meter->modbus_id,(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec);
+
+
+
+			meter->file_path = strdup(file_path);
+			meter->file_tmp_path = strdup(file_tmp_path);
 			meter->file_name = strdup(file_name);
-			meter->file_tmp_name = strdup(file_tmp_name);
-    		if (meter->file_name == NULL || meter->file_tmp_name == NULL) 
+
+
+			meter->file_path_xml = strdup(file_path_xml);
+			meter->file_tmp_path_xml = strdup(file_tmp_path_xml);
+			meter->file_name_xml = strdup(file_name_xml);
+
+
+			meter->file_path_csv = strdup(file_path_csv);
+			meter->file_tmp_path_csv = strdup(file_tmp_path_csv);
+			meter->file_name_csv = strdup(file_name_csv);
+
+    		if (meter->file_path == NULL || meter->file_tmp_path == NULL) 
     		{
        			(void) fprintf(stderr,"malloc failed\n");
        			exit(-1);
     		}
-			(void )fprintf(stderr,"the file path is %s.\n",meter->file_name);
-			(void )fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp_name);
+    		if (meter->file_path_xml == NULL || meter->file_tmp_path_xml == NULL) 
+    		{
+       			(void) fprintf(stderr,"malloc failed\n");
+       			exit(-1);
+    		}
+    		if (meter->file_path_csv == NULL || meter->file_tmp_path_csv == NULL) 
+    		{
+       			(void) fprintf(stderr,"malloc failed\n");
+       			exit(-1);
+    		}
+			(void )fprintf(stderr,"the file path is %s.\n",meter->file_path);
+			(void )fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp_path);
+			(void )fprintf(stderr,"the file path is %s.\n",meter->file_path_xml);
+			(void )fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp_path_xml);
+			(void )fprintf(stderr,"the file path is %s.\n",meter->file_path_csv);
+			(void )fprintf(stderr,"the tmp file path is %s.\n",meter->file_tmp_path_csv);
 		}
-		(void )fprintf(stderr,"opening file %s.\n",meter->file_tmp_name);
+		(void )fprintf(stderr,"opening file %s.\n",meter->file_tmp_path);
+		(void )fprintf(stderr,"opening file %s.\n",meter->file_tmp_path_xml);
+		(void )fprintf(stderr,"opening file %s.\n",meter->file_tmp_path_csv);
 
-		meter->file = fopen(meter->file_tmp_name,"a");			
+		meter->file = fopen(meter->file_tmp_path,"a");			
 		if(meter->file == NULL)
 			perror("fopen failed:");
+		meter->file_xml = fopen(meter->file_path_xml,"a");			
+		if(meter->file == NULL)
+			perror("fopen failed:");
+		meter->file_csv = fopen(meter->file_path_csv,"a");			
+		if(meter->file_csv == NULL)
+			perror("fopen failed:");
+
+		if(counter == 1){
+			fprintf(meter->file_xml,"<?xml_version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?>\n<XML>\n\t<action type=\"update\">\n");
+			fprintf(meter->file_csv,"###ACTION:UPDATE ENTITY:MeterData SCHEMA:Default VERSION:1.0.0\n");
+		}
 
 
 //**********************************************************************************************//
@@ -452,7 +620,6 @@ void timer_thread_sample(union sigval v)
 		   Databits: 8
 		   Stopbits: 1
 		*/
-
     	ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
     	//ctx = modbus_new_rtu("/dev/ttyS0", 19200, 'N', 8, 1);
     	if (ctx == NULL) {
@@ -487,27 +654,46 @@ void timer_thread_sample(union sigval v)
     		rc = modbus_read_registers(ctx, attribute->addr,
                                attribute->reg_num, tab_rp_registers);
     		if (rc == attribute->reg_num) {
+					fprintf(meter->file_xml,"\t\t<MeterData schema=\"Default\" version=\"1.0.0\">\n\t\t<AcquistionDateTime>%4d-%02d-%02dT%02d:%02d:%02d.0000000Z</AcquisitionDateTime>\n\t\t<Value>%f</Value>\n\t\t<MeterLocalId>%s%d_%s_%s_%d</MeterLocalId>\n\t\t</MeterData>\n",(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec,modbus_get_float_cdab(tab_rp_registers),"sbs",meter->modbus_id,meter->commodity,attribute->value_unit,attribute->scale);
+
+			fflush(meter->file_xml);
+					fprintf(meter->file_csv,"%4d-%02d-%02dT%02d:%02d:%02d.0000000Z,%f,%s%d_%s_%s_%d\n",(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec,modbus_get_float_cdab(tab_rp_registers),"sbs",meter->modbus_id,meter->commodity,attribute->value_unit,attribute->scale);
+
+
+			fflush(meter->file_csv);
 				second_trans(get_sample_interval(),interval_string);
-				//fprintf(meter->file,"%s%s%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%2d","MEPMD01,19970819,Schneider Electric,,,","SECN\\Schneider Electric China|SBMV\\Beijing Middle Voltage Plant","201308010358,SBMV.MCSET.FHU_HVAC_Lighting1|129","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,1,(info->tm_year + 1900),info->tm_mon,(info->tm_mday + 1),info->tm_hour,info->tm_min);
-				if(counter == 1)
+				if(counter == 1){
+
 					fprintf(meter->file,"%s%s%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%02d,,%f#","MEPMD01,19970819,Schneider Electric,,,","SECN\\Schneider Electric China|SBMV\\Beijing Middle Voltage Plant","201308010358,SBMV.MCSET.FHU_HVAC_Lighting1|129","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(),(info->tm_year + 1900),(info->tm_mon + 1),info->tm_mday,info->tm_hour,info->tm_min,modbus_get_float_cdab(tab_rp_registers));
-				//	fprintf(meter->file,"%s,%s,%s,%s,%d,%s,%d,%4d%02d%02d%02d%02d%02d,,%f ","OK",meter->commodity,attribute->value_unit,attribute->scale,interval_string,get_upload_interval() / get_sample_interval(), (info->tm_year + 1900),(info->tm_mon+1),info->tm_mday,info->tm_hour,info->tm_min,info->tm_sec,modbus_get_float_cdab(tab_rp_registers));
+
+				}
 				else{	
-						if( i == meter->num_attribute -1)	
+
+						if( i == meter->num_attribute -1){	
 							fprintf(meter->file,",,,%f",modbus_get_float_cdab(tab_rp_registers));
-						else
+						}
+						else{
 							fprintf(meter->file,",,,%f#",modbus_get_float_cdab(tab_rp_registers));
 				}
-		
 				fflush(meter->file);
-    		}
+			}
+			}
+		
+
 			else
         			printf("FAILED (nb points %d)\n", rc);
 
 		}
 			fprintf(meter->file,"\n");
-			(void )fprintf(stderr,"closing file %s.\n",meter->file_tmp_name);
+
+			if(counter == get_upload_interval() / get_sample_interval())
+				fprintf(meter->file_xml,"\t</action>\n</XML>\n");
+			(void )fprintf(stderr,"closing file %s.\n",meter->file_tmp_path);
+			(void )fprintf(stderr,"closing file %s.\n",meter->file_tmp_path_xml);
+			(void )fprintf(stderr,"closing file %s.\n",meter->file_tmp_path_csv);
 			fclose(meter->file);
+			fclose(meter->file_xml);
+			fclose(meter->file_csv);
 
 close:
     	/* Free the memory */
@@ -529,8 +715,8 @@ close:
 		{
 			char system_arguments[128];
 
-			//sprintf(system_arguments,"awk '{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\" \"}print \"\"}}' %s | sed s/[[:space:]]//g > %s_new",meter->file_name,meter->file_name);
-			sprintf(system_arguments,"awk 'BEGIN{FS=\"#\"}{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\"#\"}print \"\"}}' %s | sed s/#//g > %s",meter->file_tmp_name,meter->file_name);
+			//sprintf(system_arguments,"awk '{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\" \"}print \"\"}}' %s | sed s/[[:space:]]//g > %s_new",meter->file_path,meter->file_path);
+			sprintf(system_arguments,"awk 'BEGIN{FS=\"#\"}{for(i=1;i<=NF;i++){a[FNR,i]=$i}}END{for(i=1;i<=NF;i++){for(j=1;j<=FNR;j++){printf a[j,i]\"#\"}print \"\"}}' %s | sed s/#//g > %s",meter->file_tmp_path,meter->file_path);
 			if( system(system_arguments) != 0) 
 				(void )fprintf(stderr,"system call error.\n"); 
 
@@ -538,96 +724,16 @@ close:
 	}
 		if(counter ==  get_upload_interval() / get_sample_interval() )
 		{
-    		for (l=head; l; l=l->next)
-    		{
-
-        	meter = (Meter*) l->data;
-
 		  	printf("######upload time######.\n");
 			counter = 0;
-  			CURL *curl;
-  			CURLcode res;
-  			FILE *hd_src;
-			  struct stat file_info;
-			  curl_off_t fsize;
-			  static const char *pCACertFile="cwt.pem";
-			
-			  struct curl_slist *headerlist=NULL;
-			  static const char buf_1 [] = "RNFR " UPLOAD_FILE_AS;
-			  static char buf_2 [64];
-			  sprintf(buf_2,"RNTO %s",meter->file_name);
-			
-			  /* get the file size of the local file */
-			  if(stat(meter->file_name, &file_info)) {
-			    printf("Couldnt open '%s': %s\n", LOCAL_FILE, strerror(errno));
-			    exit -1;
-			  }
-			  fsize = (curl_off_t)file_info.st_size;
-			
-			  printf("Local file size: %" CURL_FORMAT_CURL_OFF_T " bytes.\n", fsize);
-			
-			  /* get a FILE * of the same file */
-			  hd_src = fopen(meter->file_name, "rb");
-			
-			  /* In windows, this will init the winsock stuff */
-			  curl_global_init(CURL_GLOBAL_ALL);
-			
-			  /* get a curl handle */
-			  curl = curl_easy_init();
-			  if(curl) {
-			    /* build a list of commands to pass to libcurl */
-			    headerlist = curl_slist_append(headerlist, buf_1);
-			    headerlist = curl_slist_append(headerlist, buf_2);
-			
-			    /* We activate SSL and we require it for both control and data */
-			    curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
-			
-			    /* Switch on full protocol/debug output */
-			    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-			
-			    curl_easy_setopt (curl, CURLOPT_SSL_VERIFYPEER, 0L); 
-			    curl_easy_setopt (curl, CURLOPT_SSL_VERIFYHOST, 0L); 
-			
-			    /* we want to use our own read function */
-			    curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
-			
-			    /* enable uploading */
-			    curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-
-    /* specify target */
-		    curl_easy_setopt(curl,CURLOPT_URL, REMOTE_URL);
-		
-		    /* pass in that last of FTP commands to run after the transfer */
-		    curl_easy_setopt(curl, CURLOPT_POSTQUOTE, headerlist);
-		
-		    /* now specify which file to upload */
-		    curl_easy_setopt(curl, CURLOPT_READDATA, hd_src);
-		
-		    /* Set the size of the file to upload (optional).  If you give a *_LARGE
-		       option you MUST make sure that the type of the passed-in argument is a
-		       curl_off_t. If you use CURLOPT_INFILESIZE (without _LARGE) you must
-		       make sure that to pass in a type 'long' argument. */
-		    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
-		                     (curl_off_t)fsize);
-		
-		    /* Now run off and do what you've been told! */
-		    res = curl_easy_perform(curl);
-		    /* Check for errors */
-		    if(res != CURLE_OK)
-		      fprintf(stderr, "curl_easy_perform() failed: %s\n",
-		              curl_easy_strerror(res));
-		
-		    /* clean up the FTP commands list */
-		    curl_slist_free_all (headerlist);
-		
-		    /* always cleanup */
-		    curl_easy_cleanup(curl);
-		  }
-		  fclose(hd_src); /* close the local file */
-		
-		  curl_global_cleanup();
+    		for (l=head; l; l=l->next)
+    		{
+				meter = (Meter*) l->data;
+				upload_file(meter->file_path,meter->file_name);
+				upload_file(meter->file_path_xml,meter->file_name_xml);
+				upload_file(meter->file_path_csv,meter->file_name_csv);
+			}
 		}
-	}
 }
 void timer_thread_upload(union sigval v)
 {
@@ -641,6 +747,7 @@ void timer_thread_upload(union sigval v)
 }
 int main()
 {
+	
 	char interval_string[16];
 	second_trans(get_sample_interval(),interval_string);
     (void) fprintf(stderr,"sample interval string is %s\n",interval_string);
