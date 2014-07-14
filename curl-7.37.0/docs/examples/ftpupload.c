@@ -42,7 +42,7 @@
 
 #define LOCAL_FILE      "/tmp/uploadthis.txt"
 #define UPLOAD_FILE_AS  "while-uploading.txt"
-#define REMOTE_URL      "ftp://austin:110weitao660@192.168.1.100:990/"  UPLOAD_FILE_AS
+#define REMOTE_URL      "ftp://cwt:110weitao660@192.168.5.51:990/"  UPLOAD_FILE_AS
 #define RENAME_FILE_TO  "renamed-and-fine.txt"
 
 /* NOTE: if you want this example to work on Windows with libcurl as a
@@ -71,6 +71,7 @@ int main(void)
   FILE *hd_src;
   struct stat file_info;
   curl_off_t fsize;
+  static const char *pCACertFile="cwt.pem";
 
   struct curl_slist *headerlist=NULL;
   static const char buf_1 [] = "RNFR " UPLOAD_FILE_AS;
@@ -95,8 +96,8 @@ int main(void)
   curl = curl_easy_init();
   if(curl) {
     /* build a list of commands to pass to libcurl */
-    headerlist = curl_slist_append(headerlist, buf_1);
-    headerlist = curl_slist_append(headerlist, buf_2);
+    //headerlist = curl_slist_append(headerlist, buf_1);
+    //headerlist = curl_slist_append(headerlist, buf_2);
 
     /* We activate SSL and we require it for both control and data */
     curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);

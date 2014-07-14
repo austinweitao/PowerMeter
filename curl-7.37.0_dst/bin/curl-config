@@ -21,7 +21,7 @@
 #
 ###########################################################################
 
-prefix=/home/austin/Documents/PowerMeter/curl-7.37.0_dst
+prefix=/home/austin/workstation/Meter/curl-7.37.0_dst
 exec_prefix=${prefix}
 includedir=${prefix}/include
 cppflag_curl_staticlib=
@@ -148,7 +148,7 @@ while test $# -gt 0; do
            CURLLIBDIR=""
         fi
         if test "Xno" = "Xyes"; then
-          echo ${CURLLIBDIR}-lcurl -lssl -lcrypto -lz
+          echo ${CURLLIBDIR}-lcurl -lssl -lcrypto -lssl -lcrypto -lz -lrt
         else
           echo ${CURLLIBDIR}-lcurl
         fi
@@ -156,7 +156,7 @@ while test $# -gt 0; do
 
     --static-libs)
         if test "Xyes" != "Xno" ; then
-          echo ${exec_prefix}/lib/libcurl.a -L/lib/x86_64-linux-gnu//lib -lssl -lcrypto -lz
+          echo ${exec_prefix}/lib/libcurl.a  -lssl -lcrypto -lssl -lcrypto -lz -lrt
         else
           echo "curl was built with static libraries disabled" >&2
           exit 1
@@ -164,7 +164,7 @@ while test $# -gt 0; do
         ;;
 
     --configure)
-        echo " '--prefix=/home/austin/Documents/PowerMeter/curl-7.37.0_dst/' '--with-ssl=/lib/x86_64-linux-gnu/'"
+        echo " '--prefix=/home/austin/workstation/Meter/curl-7.37.0_dst/'"
         ;;
 
     *)

@@ -104,6 +104,9 @@ int main(void)
     /* Switch on full protocol/debug output */
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
+    curl_easy_setopt (curl, CURLOPT_SSL_VERIFYPEER, 0L); 
+    curl_easy_setopt (curl, CURLOPT_SSL_VERIFYHOST, 0L); 
+
     /* we want to use our own read function */
     curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
 

@@ -1,9 +1,9 @@
 # Directories...
-$prefix=/home/austin/Documents/PowerMeter/curl-7.37.0_dst
+$prefix=/home/austin/workstation/Meter/curl-7.37.0_dst
 $exec_prefix=${prefix}
 $bindir=${exec_prefix}/bin
 $confdir=${prefix}/etc
-$docdir=/home/austin/Documents/PowerMeter/curl-7.37.0_dst/doc
+$docdir=/home/austin/workstation/Meter/curl-7.37.0_dst/doc
 $mandir=${datarootdir}/man
 $libdir=${exec_prefix}/lib
 $srcdir=../..

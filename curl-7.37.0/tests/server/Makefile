@@ -304,23 +304,23 @@ am__define_uniq_tagged_files = \
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} "/home/austin/Documents/PowerMeter/curl-7.37.0/missing" --run aclocal-1.14
+ACLOCAL = ${SHELL} "/home/austin/workstation/Meter/curl-7.37.0/missing" --run aclocal-1.14
 AMTAR = $${TAR-tar}
 AM_DEFAULT_VERBOSITY = 1
 AR = /usr/bin/ar
 AS = as
-AUTOCONF = ${SHELL} "/home/austin/Documents/PowerMeter/curl-7.37.0/missing" --run autoconf
-AUTOHEADER = ${SHELL} "/home/austin/Documents/PowerMeter/curl-7.37.0/missing" --run autoheader
-AUTOMAKE = ${SHELL} "/home/austin/Documents/PowerMeter/curl-7.37.0/missing" --run automake-1.14
+AUTOCONF = ${SHELL} "/home/austin/workstation/Meter/curl-7.37.0/missing" --run autoconf
+AUTOHEADER = ${SHELL} "/home/austin/workstation/Meter/curl-7.37.0/missing" --run autoheader
+AUTOMAKE = ${SHELL} "/home/austin/workstation/Meter/curl-7.37.0/missing" --run automake-1.14
 AWK = gawk
 BLANK_AT_MAKETIME = 
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -O2 -Wno-system-headers
 CFLAG_CURL_SYMBOL_HIDING = -fvisibility=hidden
-CONFIGURE_OPTIONS = " '--prefix=/home/austin/Documents/PowerMeter/curl-7.37.0_dst/' '--with-ssl=/lib/x86_64-linux-gnu/'"
+CONFIGURE_OPTIONS = " '--prefix=/home/austin/workstation/Meter/curl-7.37.0_dst/'"
 CPP = gcc -E
-CPPFLAGS = -I/lib/x86_64-linux-gnu//include -I/lib/x86_64-linux-gnu//include/openssl
+CPPFLAGS = 
 CPPFLAG_CURL_STATICLIB = 
 CURLVERSION = 7.37.0
 CURL_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
@@ -340,7 +340,7 @@ CURL_DISABLE_SMTP =
 CURL_DISABLE_TELNET = 
 CURL_DISABLE_TFTP = 
 CURL_LT_SHLIB_VERSIONED_FLAVOUR = 
-CURL_NETWORK_AND_TIME_LIBS = 
+CURL_NETWORK_AND_TIME_LIBS = -lrt
 CURL_NETWORK_LIBS = 
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -369,8 +369,8 @@ INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 IPV6_ENABLED = 1
 LD = /usr/bin/ld -m elf_x86_64
-LDFLAGS = -L/lib/x86_64-linux-gnu//lib
-LIBCURL_LIBS = -lssl -lcrypto -lz
+LDFLAGS = 
+LIBCURL_LIBS = -lssl -lcrypto -lssl -lcrypto -lz -lrt
 LIBMETALINK_CPPFLAGS = 
 LIBMETALINK_LDFLAGS = 
 LIBMETALINK_LIBS = 
@@ -383,7 +383,7 @@ LIPO =
 LN_S = ln -s
 LTLIBOBJS = 
 MAINT = #
-MAKEINFO = ${SHELL} "/home/austin/Documents/PowerMeter/curl-7.37.0/missing" --run makeinfo
+MAKEINFO = ${SHELL} "/home/austin/workstation/Meter/curl-7.37.0/missing" --run makeinfo
 MANIFEST_TOOL = :
 MANOPT = -man
 MKDIR_P = /bin/mkdir -p
@@ -412,7 +412,7 @@ RANLIB = ranlib
 REQUIRE_LIB_DEPS = no
 SED = /bin/sed
 SET_MAKE = 
-SHELL = /bin/bash
+SHELL = /bin/sh
 SSL_ENABLED = 1
 STRIP = strip
 SUPPORT_FEATURES = SSL IPv6 libz NTLM NTLM_WB TLS-SRP
@@ -435,10 +435,10 @@ USE_WINDOWS_SSPI =
 VERSION = -
 VERSIONNUM = 072500
 ZLIB_LIBS = -lz
-abs_builddir = /home/austin/Documents/PowerMeter/curl-7.37.0/tests/server
-abs_srcdir = /home/austin/Documents/PowerMeter/curl-7.37.0/tests/server
-abs_top_builddir = /home/austin/Documents/PowerMeter/curl-7.37.0
-abs_top_srcdir = /home/austin/Documents/PowerMeter/curl-7.37.0
+abs_builddir = /home/austin/workstation/Meter/curl-7.37.0/tests/server
+abs_srcdir = /home/austin/workstation/Meter/curl-7.37.0/tests/server
+abs_top_builddir = /home/austin/workstation/Meter/curl-7.37.0
+abs_top_srcdir = /home/austin/workstation/Meter/curl-7.37.0
 ac_ct_AR = 
 ac_ct_CC = gcc
 ac_ct_DUMPBIN = 
@@ -467,7 +467,7 @@ host_vendor = unknown
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /home/austin/Documents/PowerMeter/curl-7.37.0/install-sh
+install_sh = ${SHELL} /home/austin/workstation/Meter/curl-7.37.0/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 libext = a
@@ -477,7 +477,7 @@ mandir = ${datarootdir}/man
 mkdir_p = $(MKDIR_P)
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /home/austin/Documents/PowerMeter/curl-7.37.0_dst
+prefix = /home/austin/workstation/Meter/curl-7.37.0_dst
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -569,44 +569,44 @@ UTIL = \
 getpart_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) \
  testpart.c
 
-getpart_LDADD = 
+getpart_LDADD = -lrt
 getpart_CFLAGS = $(AM_CFLAGS)
 resolve_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) $(UTIL) \
  resolve.c
 
-resolve_LDADD = 
+resolve_LDADD = -lrt
 resolve_CFLAGS = $(AM_CFLAGS)
 rtspd_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) $(UTIL) \
  server_sockaddr.h \
  rtspd.c
 
-rtspd_LDADD = 
+rtspd_LDADD = -lrt
 rtspd_CFLAGS = $(AM_CFLAGS)
 sockfilt_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) $(UTIL) \
  server_sockaddr.h \
  sockfilt.c \
  ../../lib/inet_pton.c
 
-sockfilt_LDADD = 
+sockfilt_LDADD = -lrt
 sockfilt_CFLAGS = $(AM_CFLAGS)
 sws_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) $(UTIL) \
  server_sockaddr.h \
  sws.c \
  ../../lib/inet_pton.c
 
-sws_LDADD = 
+sws_LDADD = -lrt
 sws_CFLAGS = $(AM_CFLAGS)
 tftpd_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) $(UTIL) \
  server_sockaddr.h \
  tftpd.c \
  tftp.h
 
-tftpd_LDADD = 
+tftpd_LDADD = -lrt
 tftpd_CFLAGS = $(AM_CFLAGS)
 fake_ntlm_SOURCES = $(CURLX_SRCS) $(CURLX_HDRS) $(USEFUL) $(UTIL) \
  fake_ntlm.c
 
-fake_ntlm_LDADD = 
+fake_ntlm_LDADD = -lrt
 fake_ntlm_CFLAGS = $(AM_CFLAGS)
 
 # Makefile.inc provides neat definitions

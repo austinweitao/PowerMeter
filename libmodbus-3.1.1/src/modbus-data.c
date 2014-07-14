@@ -116,6 +116,19 @@ float modbus_get_float(const uint16_t *src)
 
     return f;
 }
+float modbus_get_float_cdab(const uint16_t *src)
+{
+    float f;
+    uint32_t i;
+	uint16_t tmp[2];
+	
+	tmp[1] = src[0];
+	tmp[0] = src[1];
+    i = (((uint32_t)tmp[1]) << 16) + tmp[0];
+    memcpy(&f, &i, sizeof(float));
+
+    return f;
+}
 
 /* Get a float from 4 bytes in inversed Modbus format (DCBA) */
 float modbus_get_float_dcba(const uint16_t *src)

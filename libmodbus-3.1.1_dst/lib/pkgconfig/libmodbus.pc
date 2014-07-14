@@ -1,4 +1,4 @@
-prefix=/home/austin/Documents/PowerMeter/libmodbus-3.1.1_dst
+prefix=/home/austin/workstation/Meter/libmodbus-3.1.1_dst
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include

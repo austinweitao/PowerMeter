@@ -15,7 +15,8 @@ typedef struct{
 	int addr;	// meter attribute register start address
 	unsigned char reg_num;	//meter attribute register number
 	int scale;	//attribute value scale
-	char *value_type;	//typde of the value: float,int,long	
+	char*  value_type;	//typde of the value: float,int,long{0,1,2}	
+	char*  value_unit;  //type of the value unit: KWh,KVarh,Volt
 }Meter_Attribute;
 
 typedef struct{
@@ -23,6 +24,7 @@ typedef struct{
 	unsigned char num_attribute;
 	Meter_Attribute *attribute;
 }Meter;
+
 static void freeData(void **data);
 
 int main (int argc,char **argv) 
@@ -77,8 +79,9 @@ int main (int argc,char **argv)
 	addr->attribute->addr = 1000;
 	addr->attribute->reg_num = 2;
 	addr->attribute->scale = 1;
-	addr->attribute->value_type = strdup("KWh");
-    	if (addr->attribute->value_type == NULL) 
+	addr->attribute->value_type = strdup("float");
+	addr->attribute->value_unit = strdup("KWh");
+    	if (addr->attribute->value_type == NULL || addr->attribute->value_unit == NULL) 
     	{
        		(void) fprintf(stderr,"malloc failed\n");
        		exit(-1);
@@ -92,6 +95,7 @@ int main (int argc,char **argv)
     (void) fprintf(stderr,"  %d\n",addr->attribute->reg_num);
     (void) fprintf(stderr,"  %d\n",addr->attribute->scale);
     (void) fprintf(stderr,"  %s\n",addr->attribute->value_type);
+    (void) fprintf(stderr,"  %s\n",addr->attribute->value_unit);
 
     /*
     ** append node after the last one
@@ -130,8 +134,9 @@ int main (int argc,char **argv)
 	addr->attribute->addr = 1002;
 	addr->attribute->reg_num = 2;
 	addr->attribute->scale = 2;
-	addr->attribute->value_type = strdup("KWh");
-    	if (addr->attribute->value_type == NULL) 
+	addr->attribute->value_type = strdup("float");
+	addr->attribute->value_unit= strdup("KVarh");
+    	if (addr->attribute->value_type == NULL || addr->attribute->value_unit == NULL) 
     	{
        		(void) fprintf(stderr,"malloc failed\n");
        		exit(-1);
@@ -145,6 +150,7 @@ int main (int argc,char **argv)
     (void) fprintf(stderr,"  %d\n",addr->attribute->reg_num);
     (void) fprintf(stderr,"  %d\n",addr->attribute->scale);
     (void) fprintf(stderr,"  %s\n",addr->attribute->value_type);
+    (void) fprintf(stderr,"  %s\n",addr->attribute->value_unit);
 
 
     /*
@@ -183,8 +189,9 @@ int main (int argc,char **argv)
 	addr->attribute->addr = 1004;
 	addr->attribute->reg_num = 2;
 	addr->attribute->scale = 3;
-	addr->attribute->value_type = strdup("KWh");
-    	if (addr->attribute->value_type == NULL) 
+	addr->attribute->value_type = strdup("float");
+	addr->attribute->value_unit= strdup("KVAh");
+    	if (addr->attribute->value_type == NULL || addr->attribute->value_unit == NULL) 
     	{
        		(void) fprintf(stderr,"malloc failed\n");
        		exit(-1);
@@ -198,6 +205,7 @@ int main (int argc,char **argv)
     (void) fprintf(stderr,"  %d\n",addr->attribute->reg_num);
     (void) fprintf(stderr,"  %d\n",addr->attribute->scale);
     (void) fprintf(stderr,"  %s\n",addr->attribute->value_type);
+    (void) fprintf(stderr,"  %s\n",addr->attribute->value_unit);
 
     /*
     ** print
@@ -214,6 +222,7 @@ int main (int argc,char **argv)
     	(void) fprintf(stderr,"  %d\n",addr->attribute->reg_num);
     	(void) fprintf(stderr,"  %d\n",addr->attribute->scale);
     	(void) fprintf(stderr,"  %s\n",addr->attribute->value_type);
+    	(void) fprintf(stderr,"  %s\n",addr->attribute->value_unit);
     }
 
     /*
@@ -244,17 +253,24 @@ static void freeData(void **data)
     if (*addr)
     {
 	(void) fprintf(stderr,"Freeing Meter Attributes First.\n");
-	if( (*addr)->attribute)
-	{
-		(void)fprintf(stderr,"Freeing value_type.\n");
-		if((*addr)->attribute->value_type)
+    int i;
+	for(i = 0; i< (*addr)->num_attribute; i++){
+		if( (*addr)->attribute)
 		{
-			(void)free((char *)((*addr)->attribute->value_type));
+			(void)fprintf(stderr,"Freeing value_type and value unit.\n");
+			if((*addr)->attribute->value_type)
+			{
+				(void)free((char *)((*addr)->attribute->value_type));
+			}
+			if((*addr)->attribute->value_unit)
+			{
+				(void)free((char *)((*addr)->attribute->value_unit));
+			}
+			(void)fprintf(stderr,"Freeing attribute itself.\n");
+			(void)free((Meter_Attribute *)(*addr)->attribute);
 		}
-		(void)fprintf(stderr,"Freeing attribute itself.\n");
-		(void)free((Meter_Attribute *)(*addr)->attribute);
 	}
-	(void) fprintf(stderr,"Freeing Meter.\n");
+		(void) fprintf(stderr,"Freeing Meter.\n");
         (void) free((Meter *) (*addr));
         (*addr)=NULL;
     }

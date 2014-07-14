@@ -18,6 +18,6 @@ use vars qw(
     $Cpreprocessor
     );
 
-$Cpreprocessor = 'gcc -E -I/lib/x86_64-linux-gnu//include -I/lib/x86_64-linux-gnu//include/openssl';
+$Cpreprocessor = 'gcc -E';
 
 1;

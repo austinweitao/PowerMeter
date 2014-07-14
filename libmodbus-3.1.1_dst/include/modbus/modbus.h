@@ -227,6 +227,7 @@ MODBUS_API void modbus_set_bits_from_bytes(uint8_t *dest, int index, unsigned in
                                        const uint8_t *tab_byte);
 MODBUS_API uint8_t modbus_get_byte_from_bits(const uint8_t *src, int index, unsigned int nb_bits);
 MODBUS_API float modbus_get_float(const uint16_t *src);
+MODBUS_API float modbus_get_float_cdab(const uint16_t *src);
 MODBUS_API float modbus_get_float_dcba(const uint16_t *src);
 MODBUS_API void modbus_set_float(float f, uint16_t *dest);
 MODBUS_API void modbus_set_float_dcba(float f, uint16_t *dest);
