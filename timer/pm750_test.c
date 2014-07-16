@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
     float float_value;
 
     use_backend = RTU;
-    ctx = modbus_new_rtu(/dev/ttyS0, 19200, 'N', 8, 1);
+    ctx = modbus_new_rtu("/dev/ttyUSB0", 19200, 'N', 8, 1);
     if (ctx == NULL) {
         fprintf(stderr, "Unable to allocate libmodbus context\n");
         return -1;
@@ -149,11 +149,15 @@ int main(int argc, char *argv[])
 
 close:
     /* Free the memory */
+        printf("FAILED 1\n");
     free(tab_rp_bits);
+        printf("FAILED 2\n");
     free(tab_rp_registers);
 
     /* Close the connection */
+        printf("FAILED 3\n");
     modbus_close(ctx);
+        printf("FAILED 4\n");
     modbus_free(ctx);
 
     return 0;
