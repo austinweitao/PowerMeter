@@ -28,6 +28,7 @@ int main(int argc, char** argv)
 	}
 
 	zlog_info(zc, "hello, zlog");
+	zlog_info(zc, "hello, zlog:%s","this is cwt");
 
 	zlog_fini();
 	
